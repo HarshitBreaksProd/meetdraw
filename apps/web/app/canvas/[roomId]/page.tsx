@@ -1,4 +1,6 @@
 import Canvas from "@/components/canvas/Canvas";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 interface CanvasPageProps {
   params: Promise<{ roomId: string }>;
@@ -6,11 +8,14 @@ interface CanvasPageProps {
 
 async function CanvasPage({ params }: CanvasPageProps) {
   const { roomId } = await params;
-  console.log(roomId);
+  const jwtCookie = (await cookies()).get("jwt");
+  if (!jwtCookie) {
+    redirect("/signin");
+  }
 
   return (
     <div className="h-screen w-screen">
-      <Canvas />
+      <Canvas roomId={roomId} token={jwtCookie.value} />
     </div>
   );
 }

@@ -26,14 +26,15 @@ model User {
 }
 
 model Room {
-  id           String @id @default(uuid())
+  id           String   @id @default(uuid())
   title        String
-  joinCode     String @unique
-  participants User[] @relation(name: "participants")
-  admin        User   @relation(fields: [adminId], references: [id])
+  joinCode     String   @unique
+  participants User[]   @relation(name: "participants")
+  admin        User     @relation(fields: [adminId], references: [id])
   adminId      String
   Chat         Chat[]
   Draw         Draw[]
+  createdAt    DateTime @default(now())
 }
 
 model Chat {

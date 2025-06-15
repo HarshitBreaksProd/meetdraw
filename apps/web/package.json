@@ -14,7 +14,6 @@
   "dependencies": {
     "@workspace/common": "workspace:*",
     "@workspace/ui": "workspace:*",
-    "@tailwindcss/postcss": "^4.0.8",
     "axios": "^1.9.0",
     "lucide-react": "^0.475.0",
     "next": "^15.2.3",
@@ -22,17 +21,15 @@
     "postcss": "^8.5.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-icons": "^5.5.0",
-    "tailwindcss": "^4.0.8"
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
-    "@workspace/eslint-config": "workspace:^",
-    "@workspace/typescript-config": "workspace:*",
     "@types/axios": "^0.14.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "tailwindcss-animate": "^1.0.7",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
     "typescript": "^5.7.3"
   }
 }

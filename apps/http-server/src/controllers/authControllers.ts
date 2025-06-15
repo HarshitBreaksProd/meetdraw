@@ -130,3 +130,24 @@ export async function signoutController(req: Request, res: Response) {
     message: "User logged out",
   });
 }
+
+export async function infoController(req: Request, res: Response) {
+  const userId = req.userId;
+
+  try {
+    const user = await prismaClient.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+    res.status(200).json({
+      message: "User info",
+      user,
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(401).json({
+      message: "Error faced while getting user info, try again",
+    });
+  }
+}

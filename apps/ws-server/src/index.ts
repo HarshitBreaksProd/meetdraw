@@ -122,7 +122,7 @@ wss.on("connection", (socket: WebSocket, req: Request) => {
         });
         break;
       }
-      case "canvas_info": {
+      case "draw": {
         const socketList = activeRooms.get(validMessage.data.roomId!);
         socketList?.forEach((member) => {
           member.socket.send(

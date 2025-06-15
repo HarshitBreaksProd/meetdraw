@@ -27,7 +27,6 @@ import {
   PiEraserFill,
   PiLineVertical,
   PiLineVerticalLight,
-  PiLineVerticalThin,
   PiMinus,
   PiPencil,
   PiPencilFill,
@@ -47,13 +46,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
-import { TbCancel, TbZoom } from "react-icons/tb";
-import { MdOutlineHorizontalRule } from "react-icons/md";
+import { TbZoom } from "react-icons/tb";
 import { GrRedo, GrUndo } from "react-icons/gr";
+import { AiOutlineHome } from "react-icons/ai";
+import { redirect } from "next/navigation";
 
-const Canvas = () => {
+const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isClient, setIsClient] = useState(false);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
   const [activeAction, setActiveAction] = useState<
     "select" | "move" | "draw" | "resize" | "edit" | "erase" | "pan" | "zoom"
   >("select");
@@ -130,6 +131,34 @@ const Canvas = () => {
     setCanRedo(undoRedoIndexRef.current < undoRedoArrayRef.current.length - 1);
   };
 
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user")!);
+    if (!user) {
+      redirect("/signin");
+    }
+
+    if (roomId && user) {
+      const socket = new WebSocket(
+        `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}`
+      );
+      setSocket(socket);
+
+      socket.onopen = () => {
+        socket.send(
+          JSON.stringify({
+            type: "connect_room",
+            roomId: roomId,
+            userId: user.id!,
+          })
+        );
+      };
+    }
+
+    return () => {
+      socket?.close();
+    };
+  }, []);
+
   const activeShapeRef = useRef(activeShape);
   const selectedShapeRef = useRef(selectedShape);
   const activeActionRef = useRef(activeAction);
@@ -139,6 +168,7 @@ const Canvas = () => {
   const activeLineWidthRef = useRef<number>(activeLineWidth);
   const activeFontRef = useRef<string>(activeFont);
   const activeFontSizeRef = useRef<string>(activeFontSize);
+
   useEffect(() => {
     activeShapeRef.current = activeShape;
     activeActionRef.current = activeAction;
@@ -338,41 +368,27 @@ const Canvas = () => {
     };
 
     const handleShortcutsClose = (event: KeyboardEvent) => {
-      if (event.key === "Shift") {
-        setActiveAction("select");
-        return;
-      }
-      if (event.key === "Control") {
-        setActiveAction("select");
-        if (canvasRef.current) {
-          canvasRef.current.style.cursor = "default";
+      if (
+        activeDraw.current?.shape !== "text" &&
+        selectedDraw.current?.shape !== "text"
+      ) {
+        if (event.key === "Shift") {
+          setActiveAction("select");
+          return;
         }
-        return;
+        if (event.key === "Control") {
+          setActiveAction("select");
+          if (canvasRef.current) {
+            canvasRef.current.style.cursor = "default";
+          }
+          return;
+        }
       }
     };
 
     document.addEventListener("keydown", (event) => handleShortcuts(event));
     document.addEventListener("keyup", (event) => handleShortcutsClose(event));
   }, []);
-
-  const zoomToPoint = (newScale: number) => {
-    const canvasCurrent = canvasRef.current;
-    if (!canvasCurrent) return;
-
-    const clampedScale = Math.max(0.1, Math.min(newScale, 10));
-
-    const screenCenterX = canvasCurrent.width / 2;
-    const screenCenterY = canvasCurrent.height / 2;
-
-    const worldPointX = (screenCenterX - panOffset.current.x) / scale.current;
-    const worldPointY = (screenCenterY - panOffset.current.y) / scale.current;
-
-    panOffset.current.x = screenCenterX - worldPointX * clampedScale;
-    panOffset.current.y = screenCenterY - worldPointY * clampedScale;
-
-    scale.current = clampedScale;
-    setZoomLevel(clampedScale);
-  };
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -421,6 +437,15 @@ const Canvas = () => {
           offsetX,
           offsetY
         );
+        if (!hoveredSelectionBox && draw) {
+          setActiveFillStyle(draw?.fillStyle!);
+          setActiveStrokeStyle(draw?.strokeStyle!);
+          setActiveLineWidth(draw?.lineWidth!);
+          if (draw?.shape === "text") {
+            setActiveFont(draw.font!);
+            setActiveFontSize(draw.fontSize!);
+          }
+        }
 
         if (draw?.shape === "text") {
           currentX.current = offsetX;
@@ -445,6 +470,7 @@ const Canvas = () => {
           };
           selectedDraw.current = draw;
           setSelectedShape(draw.shape);
+          setActiveShape(draw.shape);
           originalDrawState.current = JSON.parse(JSON.stringify(draw));
         } else if (hoveredSelectionBox) {
           setActiveAction("resize");
@@ -476,18 +502,24 @@ const Canvas = () => {
       if (activeActionRef.current === "edit") {
         if (selectedDraw.current && selectedDraw.current.shape === "text") {
           diagrams.current.push(selectedDraw.current);
-          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-            {
-              type: "edit",
-              originalDraw: originalDrawState.current,
-              modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
-            },
-            undoRedoArrayRef.current,
-            undoRedoIndexRef.current
-          );
-          undoRedoArrayRef.current = undoRedoArray;
-          undoRedoIndexRef.current = undoRedoIndex;
-          updateUndoRedoState();
+          if (originalDrawState.current && modifiedDrawState.current) {
+            const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+              {
+                type: "edit",
+                originalDraw: JSON.parse(
+                  JSON.stringify(originalDrawState.current)
+                ),
+                modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
+              },
+              undoRedoArrayRef.current,
+              undoRedoIndexRef.current
+            );
+            modifiedDrawState.current = null;
+            originalDrawState.current = null;
+            undoRedoArrayRef.current = undoRedoArray;
+            undoRedoIndexRef.current = undoRedoIndex;
+            updateUndoRedoState();
+          }
           textInp.current = "";
           selectedDraw.current = null;
           setSelectedShape(null);
@@ -686,6 +718,7 @@ const Canvas = () => {
             ctx
           );
           setSelectedShape(activeDraw.current.shape);
+          setActiveShape(activeDraw.current.shape);
         }
       }
 
@@ -732,7 +765,7 @@ const Canvas = () => {
           const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
             {
               type: "erase",
-              originalDraw: draw,
+              originalDraw: JSON.parse(JSON.stringify(draw)),
               modifiedDraw: null,
             },
             undoRedoArrayRef.current,
@@ -765,18 +798,26 @@ const Canvas = () => {
             selectedDraw.current!.startY = a;
           }
         }
-        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
-            type: "resize",
-            originalDraw: originalDrawState.current,
-            modifiedDraw: JSON.parse(JSON.stringify(modifiedDrawState.current)),
-          },
-          undoRedoArrayRef.current,
-          undoRedoIndexRef.current
-        );
-        undoRedoArrayRef.current = undoRedoArray;
-        undoRedoIndexRef.current = undoRedoIndex;
-        updateUndoRedoState();
+        if (originalDrawState.current && modifiedDrawState.current) {
+          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+            {
+              type: "resize",
+              originalDraw: JSON.parse(
+                JSON.stringify(originalDrawState.current)
+              ),
+              modifiedDraw: JSON.parse(
+                JSON.stringify(modifiedDrawState.current)
+              ),
+            },
+            undoRedoArrayRef.current,
+            undoRedoIndexRef.current
+          );
+          modifiedDrawState.current = null;
+          originalDrawState.current = null;
+          undoRedoArrayRef.current = undoRedoArray;
+          undoRedoIndexRef.current = undoRedoIndex;
+          updateUndoRedoState();
+        }
         setActiveAction("select");
         resizingInfo.current = null;
         return;
@@ -801,18 +842,26 @@ const Canvas = () => {
           }
           return;
         }
-        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
-            type: "move",
-            originalDraw: originalDrawState.current,
-            modifiedDraw: JSON.parse(JSON.stringify(modifiedDrawState.current)),
-          },
-          undoRedoArrayRef.current,
-          undoRedoIndexRef.current
-        );
-        undoRedoArrayRef.current = undoRedoArray;
-        undoRedoIndexRef.current = undoRedoIndex;
-        updateUndoRedoState();
+        if (originalDrawState.current && modifiedDrawState.current) {
+          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+            {
+              type: "move",
+              originalDraw: JSON.parse(
+                JSON.stringify(originalDrawState.current)
+              ),
+              modifiedDraw: JSON.parse(
+                JSON.stringify(modifiedDrawState.current)
+              ),
+            },
+            undoRedoArrayRef.current,
+            undoRedoIndexRef.current
+          );
+          modifiedDrawState.current = null;
+          originalDrawState.current = null;
+          undoRedoArrayRef.current = undoRedoArray;
+          undoRedoIndexRef.current = undoRedoIndex;
+          updateUndoRedoState();
+        }
         setActiveAction("select");
       }
 
@@ -885,18 +934,22 @@ const Canvas = () => {
 
         if (event.key === "Enter") {
           diagrams.current.push(activeDraw.current!);
-          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-            {
-              type: "create",
-              originalDraw: null,
-              modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current!)),
-            },
-            undoRedoArrayRef.current,
-            undoRedoIndexRef.current
-          );
-          undoRedoArrayRef.current = undoRedoArray;
-          undoRedoIndexRef.current = undoRedoIndex;
-          updateUndoRedoState();
+          if (originalDrawState.current && modifiedDrawState.current) {
+            const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+              {
+                type: "create",
+                originalDraw: null,
+                modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current!)),
+              },
+              undoRedoArrayRef.current,
+              undoRedoIndexRef.current
+            );
+            modifiedDrawState.current = null;
+            originalDrawState.current = null;
+            undoRedoArrayRef.current = undoRedoArray;
+            undoRedoIndexRef.current = undoRedoIndex;
+            updateUndoRedoState();
+          }
           textInp.current = "";
           activeDraw.current = null;
         } else if (event.key === "Escape") {
@@ -932,18 +985,24 @@ const Canvas = () => {
 
         if (event.key === "Enter") {
           diagrams.current.push(selectedDraw.current!);
-          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-            {
-              type: "edit",
-              originalDraw: originalDrawState.current,
-              modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
-            },
-            undoRedoArrayRef.current,
-            undoRedoIndexRef.current
-          );
-          undoRedoArrayRef.current = undoRedoArray;
-          undoRedoIndexRef.current = undoRedoIndex;
-          updateUndoRedoState();
+          if (originalDrawState.current && modifiedDrawState.current) {
+            const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+              {
+                type: "edit",
+                originalDraw: JSON.parse(
+                  JSON.stringify(originalDrawState.current)
+                ),
+                modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
+              },
+              undoRedoArrayRef.current,
+              undoRedoIndexRef.current
+            );
+            modifiedDrawState.current = null;
+            originalDrawState.current = null;
+            undoRedoArrayRef.current = undoRedoArray;
+            undoRedoIndexRef.current = undoRedoIndex;
+            updateUndoRedoState();
+          }
           textInp.current = "";
           selectedDraw.current = null;
           setSelectedShape(null);
@@ -979,7 +1038,7 @@ const Canvas = () => {
       event.preventDefault();
 
       if (activeActionRef.current === "zoom" || event.ctrlKey) {
-        const zoomSensitivity = 0.01;
+        const zoomSensitivity = 0.03;
         const newScale = scale.current - event.deltaY * zoomSensitivity;
         zoomToPoint(newScale);
       } else {
@@ -1004,9 +1063,182 @@ const Canvas = () => {
     };
   }, []);
 
+  const zoomToPoint = (newScale: number) => {
+    const canvasCurrent = canvasRef.current;
+    if (!canvasCurrent) return;
+
+    const clampedScale = Math.max(0.1, Math.min(newScale, 10));
+
+    const screenCenterX = canvasCurrent.width / 2;
+    const screenCenterY = canvasCurrent.height / 2;
+
+    const worldPointX = (screenCenterX - panOffset.current.x) / scale.current;
+    const worldPointY = (screenCenterY - panOffset.current.y) / scale.current;
+
+    panOffset.current.x = screenCenterX - worldPointX * clampedScale;
+    panOffset.current.y = screenCenterY - worldPointY * clampedScale;
+
+    scale.current = clampedScale;
+    setZoomLevel(clampedScale);
+  };
+
+  const changeActiveFillStyle = (color: string) => {
+    setActiveFillStyle(color);
+    if (selectedDraw.current) {
+      selectedDraw.current.fillStyle = color;
+      if (
+        originalDrawState.current?.fillStyle !== selectedDraw.current.fillStyle
+      ) {
+        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+          {
+            type: "edit",
+            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+          },
+          undoRedoArrayRef.current,
+          undoRedoIndexRef.current
+        );
+        modifiedDrawState.current = null;
+        originalDrawState.current = JSON.parse(
+          JSON.stringify(selectedDraw.current)
+        );
+        undoRedoArrayRef.current = undoRedoArray;
+        undoRedoIndexRef.current = undoRedoIndex;
+        updateUndoRedoState();
+      }
+    }
+  };
+
+  const changeActiveStrokeStyle = (color: string) => {
+    setActiveStrokeStyle(color);
+    if (selectedDraw.current) {
+      selectedDraw.current.strokeStyle = color;
+      if (
+        originalDrawState.current?.strokeStyle !==
+        selectedDraw.current.strokeStyle
+      ) {
+        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+          {
+            type: "edit",
+            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+          },
+          undoRedoArrayRef.current,
+          undoRedoIndexRef.current
+        );
+        modifiedDrawState.current = null;
+        originalDrawState.current = JSON.parse(
+          JSON.stringify(selectedDraw.current)
+        );
+        undoRedoArrayRef.current = undoRedoArray;
+        undoRedoIndexRef.current = undoRedoIndex;
+        updateUndoRedoState();
+      }
+    }
+  };
+
+  const changeActiveLineWidth = (width: number) => {
+    setActiveLineWidth(width);
+    if (selectedDraw.current) {
+      selectedDraw.current.lineWidth = width;
+      if (
+        originalDrawState.current?.lineWidth !== selectedDraw.current.lineWidth
+      ) {
+        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+          {
+            type: "edit",
+            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+          },
+          undoRedoArrayRef.current,
+          undoRedoIndexRef.current
+        );
+        modifiedDrawState.current = null;
+        originalDrawState.current = JSON.parse(
+          JSON.stringify(selectedDraw.current)
+        );
+        undoRedoArrayRef.current = undoRedoArray;
+        undoRedoIndexRef.current = undoRedoIndex;
+        updateUndoRedoState();
+      }
+    }
+  };
+
+  const changeActiveFont = (font: string) => {
+    setActiveFont(font);
+    if (selectedDraw.current) {
+      selectedDraw.current.font = font;
+      if (originalDrawState.current?.font !== selectedDraw.current.font) {
+        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+          {
+            type: "edit",
+            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+          },
+          undoRedoArrayRef.current,
+          undoRedoIndexRef.current
+        );
+        modifiedDrawState.current = null;
+        originalDrawState.current = JSON.parse(
+          JSON.stringify(selectedDraw.current)
+        );
+        undoRedoArrayRef.current = undoRedoArray;
+        undoRedoIndexRef.current = undoRedoIndex;
+        updateUndoRedoState();
+      }
+    }
+  };
+
+  const changeActiveFontSize = (size: number) => {
+    setActiveFontSize(size.toString());
+    if (selectedDraw.current) {
+      selectedDraw.current.fontSize = size.toString();
+      if (
+        originalDrawState.current?.fontSize !== selectedDraw.current.fontSize
+      ) {
+        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+          {
+            type: "edit",
+            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+          },
+          undoRedoArrayRef.current,
+          undoRedoIndexRef.current
+        );
+        modifiedDrawState.current = null;
+        originalDrawState.current = JSON.parse(
+          JSON.stringify(selectedDraw.current)
+        );
+        undoRedoArrayRef.current = undoRedoArray;
+        undoRedoIndexRef.current = undoRedoIndex;
+        updateUndoRedoState();
+      }
+    }
+  };
+
+  if (socket === null) {
+    return (
+      <div className="h-screen w-screen relative flex items-center justify-center bg-neutral-900">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-green-500" />
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider>
       <div className="h-screen w-screen relative">
+        <div className="fixed z-2 w-fit h-fit bg-black rounded-md left-3 top-3">
+          <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">
+            <Button
+              size="icon"
+              className={`bg-transparent relative p-2 ${activeAction === "draw" && activeShape === "line" ? "bg-green-600 hover:bg-green-600" : "hover:bg-green-600/20"} cursor-pointer`}
+              onClick={() => redirect("/home")}
+            >
+              <AiOutlineHome className="text-white" size="18" />
+            </Button>
+          </div>
+        </div>
+
         <div className="fixed z-2 w-fit h-fit bg-black rounded-lg left-1/2 top-3 transform -translate-x-1/2">
           <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">
             <Button
@@ -1221,11 +1453,8 @@ const Canvas = () => {
         </div>
 
         {activeAction === "draw" ||
-        activeAction === "edit" ||
-        activeAction === "resize" ||
-        (activeAction === "select" && selectedShape !== null) ||
-        activeAction === "move" ? (
-          activeShape === "text" ? (
+        (activeAction === "select" && selectedShape !== null) ? (
+          activeShape === "text" || selectedShape === "text" ? (
             <div className="fixed px-3 py-2 z-2 w-fit h-fit bg-neutral-900 border border-neutral-600 rounded left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
               <div className="space-y-2 items-center rounded-md text-white">
                 <div className="text-sm">
@@ -1235,7 +1464,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#eeeeee] hover:bg-[#eeeeee] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#eeeeee");
+                        changeActiveStrokeStyle("#eeeeee");
                       }}
                     >
                       ..
@@ -1244,7 +1473,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FFD586] hover:bg-[#FFD586] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#FFD586");
+                        changeActiveStrokeStyle("#FFD586");
                       }}
                     >
                       ..
@@ -1253,7 +1482,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FF9898] hover:bg-[#FF9898] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#FF9898");
+                        changeActiveStrokeStyle("#FF9898");
                       }}
                     >
                       ..
@@ -1262,7 +1491,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#B9D4AA] hover:bg-[#B9D4AA] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#B9D4AA");
+                        changeActiveStrokeStyle("#B9D4AA");
                       }}
                     >
                       ..
@@ -1271,7 +1500,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#8DD8FF] hover:bg-[#8DD8FF] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#8DD8FF");
+                        changeActiveStrokeStyle("#8DD8FF");
                       }}
                     >
                       ..
@@ -1290,21 +1519,21 @@ const Canvas = () => {
                     <Button
                       size="sm"
                       className={`relative cursor-pointer text-white font-[Arial] -mr-1 ${activeFont === "Arial" ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
-                      onClick={() => setActiveFont("Arial")}
+                      onClick={() => changeActiveFont("Arial")}
                     >
                       Abc
                     </Button>
                     <Button
                       size="sm"
                       className={`relative cursor-pointer text-white font-[Verdana] -mr-1 ${activeFont === "Verdana" ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
-                      onClick={() => setActiveFont("Verdana")}
+                      onClick={() => changeActiveFont("Verdana")}
                     >
                       Abc
                     </Button>
                     <Button
                       size="sm"
                       className={`relative cursor-pointer text-white font-[ComicSansMS] -mr-1 ${activeFont === "Comic Sans MS" ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
-                      onClick={() => setActiveFont("Comic Sans MS")}
+                      onClick={() => changeActiveFont("Comic Sans MS")}
                     >
                       Abc
                     </Button>
@@ -1316,21 +1545,21 @@ const Canvas = () => {
                     <Button
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeFontSize === "20" ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
-                      onClick={() => setActiveFontSize("20")}
+                      onClick={() => changeActiveFontSize(20)}
                     >
                       S
                     </Button>
                     <Button
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeFontSize === "40" ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
-                      onClick={() => setActiveFontSize("40")}
+                      onClick={() => changeActiveFontSize(40)}
                     >
                       M
                     </Button>
                     <Button
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeFontSize === "60" ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
-                      onClick={() => setActiveFontSize("60")}
+                      onClick={() => changeActiveFontSize(60)}
                     >
                       L
                     </Button>
@@ -1340,7 +1569,10 @@ const Canvas = () => {
             </div>
           ) : activeShape === "freeHand" ||
             activeShape === "arrow" ||
-            activeShape === "line" ? (
+            activeShape === "line" ||
+            selectedShape === "freeHand" ||
+            selectedShape === "arrow" ||
+            selectedShape === "line" ? (
             <div className="fixed px-3 py-2 z-2 w-fit h-fit bg-neutral-900 border border-neutral-600 rounded left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
               <div className="space-y-2 items-center rounded-md">
                 <div className="text-sm">
@@ -1350,7 +1582,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#eeeeee] hover:bg-[#eeeeee] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#eeeeee");
+                        changeActiveStrokeStyle("#eeeeee");
                       }}
                     >
                       ..
@@ -1359,7 +1591,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FFD586] hover:bg-[#FFD586] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#FFD586");
+                        changeActiveStrokeStyle("#FFD586");
                       }}
                     >
                       ..
@@ -1368,7 +1600,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FF9898] hover:bg-[#FF9898] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#FF9898");
+                        changeActiveStrokeStyle("#FF9898");
                       }}
                     >
                       ..
@@ -1377,7 +1609,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#B9D4AA] hover:bg-[#B9D4AA] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#B9D4AA");
+                        changeActiveStrokeStyle("#B9D4AA");
                       }}
                     >
                       ..
@@ -1386,7 +1618,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#8DD8FF] hover:bg-[#8DD8FF] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#8DD8FF");
+                        changeActiveStrokeStyle("#8DD8FF");
                       }}
                     >
                       ..
@@ -1406,7 +1638,7 @@ const Canvas = () => {
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeLineWidth === 2 ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
                       onClick={() => {
-                        setActiveLineWidth(2);
+                        changeActiveLineWidth(2);
                       }}
                     >
                       <svg
@@ -1432,7 +1664,7 @@ const Canvas = () => {
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeLineWidth === 3 ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
                       onClick={() => {
-                        setActiveLineWidth(3);
+                        changeActiveLineWidth(3);
                       }}
                     >
                       <svg
@@ -1458,7 +1690,7 @@ const Canvas = () => {
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeLineWidth === 4 ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
                       onClick={() => {
-                        setActiveLineWidth(4);
+                        changeActiveLineWidth(4);
                       }}
                     >
                       <svg
@@ -1494,7 +1726,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#eeeeee] hover:bg-[#eeeeee] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#eeeeee");
+                        changeActiveStrokeStyle("#eeeeee");
                       }}
                     >
                       ..
@@ -1503,7 +1735,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FFD586] hover:bg-[#FFD586] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#FFD586");
+                        changeActiveStrokeStyle("#FFD586");
                       }}
                     >
                       ..
@@ -1512,7 +1744,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FF9898] hover:bg-[#FF9898] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#FF9898");
+                        changeActiveStrokeStyle("#FF9898");
                       }}
                     >
                       ..
@@ -1521,7 +1753,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#B9D4AA] hover:bg-[#B9D4AA] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#B9D4AA");
+                        changeActiveStrokeStyle("#B9D4AA");
                       }}
                     >
                       ..
@@ -1530,7 +1762,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#8DD8FF] hover:bg-[#8DD8FF] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveStrokeStyle("#8DD8FF");
+                        changeActiveStrokeStyle("#8DD8FF");
                       }}
                     >
                       ..
@@ -1550,7 +1782,7 @@ const Canvas = () => {
                       size="sm"
                       className="relative cursor-pointer -mr-1 text-transparent hover:bg-transparent bg-transparent border border-gray-400/20"
                       onClick={() => {
-                        setActiveFillStyle("#eeeeee00");
+                        changeActiveFillStyle("#eeeeee00");
                       }}
                     >
                       .
@@ -1559,7 +1791,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FFD58660] hover:bg-[#FFD58660] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveFillStyle("#FFD58660");
+                        changeActiveFillStyle("#FFD58660");
                       }}
                     >
                       ..
@@ -1568,7 +1800,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#FF989860] hover:bg-[#FF989860] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveFillStyle("#FF989860");
+                        changeActiveFillStyle("#FF989860");
                       }}
                     >
                       ..
@@ -1577,7 +1809,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#B9D4AA60] hover:bg-[#B9D4AA60] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveFillStyle("#B9D4AA60");
+                        changeActiveFillStyle("#B9D4AA60");
                       }}
                     >
                       ..
@@ -1586,7 +1818,7 @@ const Canvas = () => {
                       size="sm"
                       className="bg-[#8DD8FF60] hover:bg-[#8DD8FF60] relative cursor-pointer -mr-1 text-transparent"
                       onClick={() => {
-                        setActiveFillStyle("#8DD8FF60");
+                        changeActiveFillStyle("#8DD8FF60");
                       }}
                     >
                       ..
@@ -1606,7 +1838,7 @@ const Canvas = () => {
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeLineWidth === 3 ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
                       onClick={() => {
-                        setActiveLineWidth(3);
+                        changeActiveLineWidth(3);
                       }}
                     >
                       <svg
@@ -1632,7 +1864,7 @@ const Canvas = () => {
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeLineWidth === 6 ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
                       onClick={() => {
-                        setActiveLineWidth(6);
+                        changeActiveLineWidth(6);
                       }}
                     >
                       <svg
@@ -1658,7 +1890,7 @@ const Canvas = () => {
                       size="sm"
                       className={`relative cursor-pointer text-white -mr-1 ${activeLineWidth === 9 ? "bg-green-600/40 hover:bg-green-600/40" : "bg-neutral-900 hover:bg-neutral-800"}`}
                       onClick={() => {
-                        setActiveLineWidth(9);
+                        changeActiveLineWidth(9);
                       }}
                     >
                       <svg
