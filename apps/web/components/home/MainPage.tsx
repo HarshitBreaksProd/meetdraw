@@ -8,34 +8,18 @@ import { useEffect, useRef, useState } from "react";
 import StateButton from "./StateButton";
 import CreateRoomView from "./CreateRoomView";
 import JoinRoomView from "./JoinRoomView";
-import { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { redirect } from "next/navigation";
-import { setUser } from "@/lib/features/meetdraw/appSlice";
-import { Room, User } from "@/types";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
-const MainPage = ({
-  jwtCookie,
-  user,
-  rooms,
-}: {
-  jwtCookie: RequestCookie | undefined;
-  user: User;
-  rooms: Room[];
-}) => {
-  const userState = useAppSelector((state) => state.app.user);
-  const dispatch = useAppDispatch();
+const MainPage = ({ user, rooms }: { user: any; rooms: any }) => {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   useEffect(() => {
-    if (!jwtCookie || !jwtCookie.value) {
-      redirect("/signin");
+    if (status === "unauthenticated") {
+      router.push("/signin");
     }
-    if (!userState) {
-      const user = JSON.parse(sessionStorage.getItem("user")!);
-      if (user) {
-        dispatch(setUser(user));
-      }
-    }
-  }, [jwtCookie, userState]);
+  }, [status, router]);
 
   const [position, setPosition] = useState<{ x: string; y: string }>({
     x: "0",
@@ -58,6 +42,18 @@ const MainPage = ({
     homeDivCurrent.addEventListener("mousemove", handleMouseMove);
   }, []);
 
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center w-screen h-screen">
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null; // Will redirect
+  }
+
   return (
     <div
       ref={homeRef}
@@ -76,7 +72,7 @@ const MainPage = ({
         <ChatsView rooms={rooms} />
       </div>
       <div className="flex-1 min-h-0 w-3/4 flex flex-col space-y-2 p-2 border rounded-xl backdrop-blur-md bg-black/10">
-        <div className="border  rounded-lg flex items-center justify-between py-3 px-4 backdrop-blur-md bg-black/40">
+        <div className="border rounded-lg flex items-center justify-between py-3 px-4 backdrop-blur-md bg-black/40">
           <h1 className="text-2xl font-pencerio font-bold">meetdraw/ Home</h1>
           <div className="flex gap-2">
             <StateButton

@@ -1,7 +1,11 @@
 "use server";
+
 import { UserSigninSchema, UserSignupSchema } from "@workspace/common/types";
-import axiosInstance from "@/lib/axios/axiosInstance";
-import { cookies } from "next/headers";
+import { signIn, signOut } from "next-auth/react";
+
+import { redirect } from "next/navigation";
+import prismaClient from "@workspace/db";
+import bcrypt from "bcrypt";
 
 export interface FormState {
   message: string;
@@ -36,28 +40,50 @@ export async function signupAction(
   }
 
   try {
-    const res = await axiosInstance.post("/auth/signup", validatedFields.data);
-    if (res.data.token) {
-      (await cookies()).set("jwt", res.data.token, {
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      });
+    // Hash password
+    const saltRounds = parseInt(process.env.SALTROUNDS || "10");
+    const hashedPassword = await bcrypt.hash(
+      validatedFields.data.password,
+      saltRounds
+    );
+
+    // Create user in database
+    const userCreated = await prismaClient.user.create({
+      data: {
+        username: validatedFields.data.username,
+        password: hashedPassword,
+        name: validatedFields.data.name,
+      },
+    });
+
+    // Auto sign in after signup
+    const signInResult = await signIn("credentials", {
+      username: validatedFields.data.username,
+      password: validatedFields.data.password,
+      redirect: false,
+    });
+
+    if (signInResult?.error) {
+      throw new Error("Failed to sign in after signup");
     }
+
     return {
       user: {
-        id: res.data.user.id,
-        name: res.data.user.name,
-        username: res.data.user.username,
+        id: userCreated.id,
+        name: userCreated.name || "",
+        username: userCreated.username,
       },
       message: "User created successfully.",
     };
-  } catch (error) {
-    console.log(error);
-    const message = (error as any).response.data.message;
-    if (message) {
-      return { message };
+  } catch (error: any) {
+    console.error("Signup error:", error);
+
+    // Handle unique constraint violation (username already exists)
+    if (error.code === "P2002") {
+      return { message: "Username already exists" };
     }
-    return { message: "Could not create user." };
+
+    return { message: "Could not create user. Please try again." };
   }
 }
 
@@ -79,27 +105,49 @@ export async function signinAction(
   }
 
   try {
-    const res = await axiosInstance.post("/auth/signin", validatedFields.data);
-    if (res.data.token) {
-      (await cookies()).set("jwt", res.data.token, {
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      });
+    const result = await signIn("credentials", {
+      username: validatedFields.data.username,
+      password: validatedFields.data.password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      return { message: "Invalid credentials" };
     }
+
+    // Get user data to return
+    const user = await prismaClient.user.findFirst({
+      where: { username: validatedFields.data.username },
+      select: { id: true, name: true, username: true },
+    });
+
+    if (!user) {
+      return { message: "User not found" };
+    }
+
     return {
       user: {
-        id: res.data.user.id,
-        name: res.data.user.name,
-        username: res.data.user.username,
+        id: user.id,
+        name: user.name || "",
+        username: user.username,
       },
       message: "User logged in successfully.",
     };
   } catch (error) {
-    console.log(error);
-    const message = (error as any).response.data.message;
-    if (message) {
-      return { message };
+    console.error("Signin error:", error);
+
+    if (error instanceof Error) {
+      return { message: "Invalid credentials" };
     }
+
     return { message: "Could not login user." };
   }
+}
+
+export async function signoutAction() {
+  await signOut({ redirect: false });
+}
+
+export async function redirectToHome() {
+  redirect("/home");
 }

@@ -1,21 +1,28 @@
 import MainPage from "@/components/home/MainPage";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import axiosInstance from "@/lib/axios/axiosInstance";
+
+import { fetchAllRoomsAction } from "@/actions/roomActions";
+import { getUserInfoAction } from "@/actions/contentActions";
+import { getAuthSession } from "@/lib/auth";
 
 const page = async () => {
-  const jwtCookie = (await cookies()).get("jwt");
+  const session = await getAuthSession();
 
-  if (!jwtCookie) {
+  if (!session?.user) {
     redirect("/signin");
   }
 
-  const { data: user } = await axiosInstance.get("/auth/info");
-  const { data: rooms } = await axiosInstance.get("/room/all");
+  try {
+    const [userInfo, rooms] = await Promise.all([
+      getUserInfoAction(),
+      fetchAllRoomsAction(),
+    ]);
 
-  return (
-    <MainPage jwtCookie={jwtCookie} user={user.user} rooms={rooms.rooms} />
-  );
+    return <MainPage user={userInfo.user} rooms={rooms} />;
+  } catch (error) {
+    console.error("Failed to load home page data:", error);
+    redirect("/signin");
+  }
 };
 
 export default page;

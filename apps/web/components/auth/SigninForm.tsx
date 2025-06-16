@@ -12,14 +12,12 @@ import {
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import Link from "next/link";
-import { signinAction } from "@/actions/authActions";
+import { signinAction, redirectToHome } from "@/actions/authActions";
 import { useFormStatus } from "react-dom";
 import { useActionState, useEffect } from "react";
 import { BiInfoCircle } from "react-icons/bi";
-import { redirect } from "next/navigation";
-import { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
-import { setUser } from "@/lib/features/meetdraw/appSlice";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -37,33 +35,38 @@ function SubmitButton() {
   );
 }
 
-export default function SigninForm({
-  jwtCookie,
-}: {
-  jwtCookie: RequestCookie | null;
-}) {
+export default function SigninForm() {
   const initialState = { message: "", errors: {} };
   const [state, formAction] = useActionState(signinAction, initialState);
-  const userState = useAppSelector((state) => state.app.user);
-  const dispatch = useAppDispatch();
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
-    if (state.user) {
-      const user = {
-        id: state.user.id,
-        name: state.user.name,
-        username: state.user.username,
-      };
-      sessionStorage.setItem("user", JSON.stringify(user));
-      dispatch(setUser(user));
+    if (status === "authenticated" && session) {
+      router.push("/home");
     }
-  }, [state.user]);
+  }, [status, session, router]);
 
   useEffect(() => {
-    if (jwtCookie && jwtCookie.value && userState) {
-      redirect("/home");
+    if (state.user && !state.message.includes("Invalid")) {
+      // Successful signin, refresh session
+      window.location.href = "/home";
     }
-  }, [userState]);
+  }, [state.user, state.message]);
+
+  if (status === "loading") {
+    return (
+      <Card className="w-full max-w-sm rounded-lg z-2 font-cabinet-grotesk tracking-wide">
+        <CardContent className="flex items-center justify-center p-8">
+          <div>Loading...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (status === "authenticated") {
+    return null; // Will redirect
+  }
 
   return (
     <Card className="w-full max-w-sm rounded-lg z-2 font-cabinet-grotesk tracking-wide">

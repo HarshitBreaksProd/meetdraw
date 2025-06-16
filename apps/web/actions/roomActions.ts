@@ -1,42 +1,87 @@
 "use server";
-import { Room } from "@/types";
-import axiosInstance from "@/lib/axios/axiosInstance";
+
+import prismaClient from "@workspace/db/client";
+import { CreateRoomSchema, JoinRoomSchema } from "@workspace/common";
+import { redirect } from "next/navigation";
+import { getAuthSession } from "@/lib/auth";
 
 export interface RoomActionState {
   message: string;
-  room?: Room;
+  room?: any;
+}
+
+function generateJoinCode(length: number): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 export async function createRoomAction(
   initialState: RoomActionState,
   formData: FormData
 ): Promise<RoomActionState> {
-  const title = formData.get("title") as string;
+  const session = await getAuthSession();
 
-  if (!title || title.trim().length === 0) {
-    return {
-      message: "Title is required",
-    };
+  if (!session?.user?.id) {
+    redirect("/signin");
   }
 
-  if (title.length > 50) {
+  const title = formData.get("title") as string;
+
+  // Validate using shared schema
+  const validation = CreateRoomSchema.safeParse({ title });
+  if (!validation.success) {
     return {
-      message: "Title must be less than 50 characters",
+      message: "Invalid title",
     };
   }
 
   try {
-    const room = await axiosInstance.post<Room>(`/room/create`, {
-      title,
+    const joinCode = generateJoinCode(6);
+
+    const room = await prismaClient.room.create({
+      data: {
+        title: validation.data.title,
+        joinCode,
+        adminId: session.user.id,
+        participants: {
+          connect: [{ id: session.user.id }],
+        },
+      },
+      include: {
+        admin: {
+          select: {
+            name: true,
+          },
+        },
+        Chat: {
+          take: 1,
+          orderBy: {
+            serialNumber: "desc",
+          },
+          select: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+            content: true,
+          },
+        },
+      },
     });
+
     return {
       message: "Room created successfully",
-      room: room.data,
+      room,
     };
   } catch (error: any) {
-    console.log(error);
+    console.error("Create room error:", error);
     return {
-      message: error.response.data.message,
+      message: "Failed to create room. Please try again.",
     };
   }
 }
@@ -45,26 +90,119 @@ export async function joinRoomAction(
   initialState: RoomActionState,
   formData: FormData
 ): Promise<RoomActionState> {
+  const session = await getAuthSession();
+
+  if (!session?.user?.id) {
+    redirect("/signin");
+  }
+
   const joinCode = formData.get("joinCode") as string;
 
-  if (!joinCode || joinCode.trim().length === 0) {
+  // Validate using shared schema
+  const validation = JoinRoomSchema.safeParse({ joinCode });
+  if (!validation.success) {
     return {
-      message: "Join code is required",
+      message: "Invalid join code",
     };
   }
 
   try {
-    const room = await axiosInstance.post<Room>(`/room/join`, {
-      joinCode,
+    const room = await prismaClient.room.update({
+      where: {
+        joinCode: validation.data.joinCode,
+      },
+      data: {
+        participants: {
+          connect: {
+            id: session.user.id,
+          },
+        },
+      },
+      include: {
+        admin: {
+          select: {
+            name: true,
+          },
+        },
+        Chat: {
+          take: 1,
+          orderBy: {
+            serialNumber: "desc",
+          },
+          select: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+            content: true,
+          },
+        },
+      },
     });
+
     return {
       message: "Room joined successfully",
-      room: room.data,
+      room,
     };
   } catch (error: any) {
-    console.log(error);
+    console.error("Join room error:", error);
     return {
-      message: error.response.data.message,
+      message: "Failed to join room. Please check the join code and try again.",
     };
+  }
+}
+
+export async function fetchAllRoomsAction(): Promise<any> {
+  const session = await getAuthSession();
+
+  if (!session?.user?.id) {
+    redirect("/signin");
+  }
+
+  try {
+    const rooms = await prismaClient.room.findMany({
+      where: {
+        participants: {
+          some: { id: session.user.id },
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        joinCode: true,
+        admin: {
+          select: {
+            name: true,
+          },
+        },
+        adminId: true,
+        Chat: {
+          take: 1,
+          orderBy: {
+            serialNumber: "desc",
+          },
+          select: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+            content: true,
+          },
+        },
+        Draw: {
+          take: 10,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return rooms;
+  } catch (error) {
+    console.error("Fetch rooms error:", error);
+    throw new Error("Failed to fetch rooms");
   }
 }

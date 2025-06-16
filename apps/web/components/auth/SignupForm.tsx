@@ -11,15 +11,13 @@ import {
 } from "@workspace/ui/components/card";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
-import { BiInfoCircle } from "react-icons/bi";
 import Link from "next/link";
 import { signupAction } from "@/actions/authActions";
 import { useFormStatus } from "react-dom";
 import { useActionState, useEffect } from "react";
-import { redirect } from "next/navigation";
-import { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
-import { setUser } from "@/lib/features/meetdraw/appSlice";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { BiInfoCircle } from "react-icons/bi";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -31,45 +29,55 @@ function SubmitButton() {
       className="w-full overflow-clip relative p-0 cursor-pointer transition-all duration-200 hover:bg-black hover:text-white border hover:border-green-600/20"
     >
       <div className="w-full h-full abolute flex items-center justify-center bg-linear-150 from-green-500/30 from-10% via-white/0 via-40% to-green-500/70 to-120%">
-        {pending ? "Signing up..." : "Sign up"}
+        {pending ? "Creating account..." : "Sign up"}
       </div>
     </Button>
   );
 }
 
-export default function SignupForm({
-  jwtCookie,
-}: {
-  jwtCookie: RequestCookie | null;
-}) {
+export default function SignupForm() {
   const initialState = { message: "", errors: {} };
   const [state, formAction] = useActionState(signupAction, initialState);
-  const dispatch = useAppDispatch();
-  const userState = useAppSelector((state) => state.app.user);
-  useEffect(() => {
-    if (state.user) {
-      const user = {
-        id: state.user.id,
-        name: state.user.name,
-        username: state.user.username,
-      };
-      sessionStorage.setItem("user", JSON.stringify(user));
-      dispatch(setUser(user));
-    }
-  }, [state.user]);
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
-    if (jwtCookie && jwtCookie.value && userState) {
-      redirect("/home");
+    if (status === "authenticated" && session) {
+      router.push("/home");
     }
-  }, [userState]);
+  }, [status, session, router]);
+
+  useEffect(() => {
+    if (
+      state.user &&
+      !state.message.includes("exists") &&
+      !state.message.includes("match")
+    ) {
+      // Successful signup, refresh session
+      window.location.href = "/home";
+    }
+  }, [state.user, state.message]);
+
+  if (status === "loading") {
+    return (
+      <Card className="w-full max-w-sm rounded-lg z-2 font-cabinet-grotesk tracking-wide">
+        <CardContent className="flex items-center justify-center p-8">
+          <div>Loading...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (status === "authenticated") {
+    return null; // Will redirect
+  }
 
   return (
     <Card className="w-full max-w-sm rounded-lg z-2 font-cabinet-grotesk tracking-wide">
       <CardHeader>
-        <CardTitle className="text-2xl -mb-2">Signup</CardTitle>
+        <CardTitle className="text-2xl -mb-2">Sign up</CardTitle>
         <CardDescription className="text-sm text-neutral-300">
-          Create a new account to use{" "}
+          Create an account to start using{" "}
           <span className="font-pencerio font-bold tracking-wider">
             meetdraw
           </span>
@@ -78,9 +86,9 @@ export default function SignupForm({
       <CardContent>
         <form action={formAction}>
           <div className="flex flex-col gap-4 text-gray-200">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="grid gap-2">
-                <Label htmlFor="firstname">First Name</Label>
+            <div className="flex gap-2">
+              <div className="grid gap-2 w-1/2">
+                <Label htmlFor="firstname">First name</Label>
                 <Input
                   id="firstname"
                   name="firstname"
@@ -90,8 +98,8 @@ export default function SignupForm({
                   required
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lastname">Last Name</Label>
+              <div className="grid gap-2 w-1/2">
+                <Label htmlFor="lastname">Last name</Label>
                 <Input
                   id="lastname"
                   name="lastname"
@@ -129,7 +137,7 @@ export default function SignupForm({
               <Input
                 id="verify-password"
                 name="verify-password"
-                type="text"
+                type="password"
                 minLength={8}
                 required
                 className="focus-visible:border-green-600/50 focus-visible:ring-green-600/20"
