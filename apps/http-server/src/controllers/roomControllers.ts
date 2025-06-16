@@ -17,7 +17,7 @@ export async function createRoomController(req: Request, res: Response) {
 
     const room = await prismaClient.room.create({
       data: {
-        title: req.body?.title || `Room - ${joinCode}`,
+        title: req.body.title,
         joinCode,
         adminId: userId,
         participants: {
@@ -57,7 +57,7 @@ export async function joinRoomController(req: Request, res: Response) {
 
   try {
     const joinCode = validInputs.data.joinCode;
-    const response = await prismaClient.room.update({
+    const room = await prismaClient.room.update({
       where: {
         joinCode: joinCode,
       },
@@ -71,7 +71,7 @@ export async function joinRoomController(req: Request, res: Response) {
     });
     res.json({
       message: "Room Joined Successfully",
-      roomId: response.id,
+      room,
     });
     return;
   } catch (e) {
@@ -80,5 +80,65 @@ export async function joinRoomController(req: Request, res: Response) {
       message: "Faced error joining room, please try again",
     });
     return;
+  }
+}
+
+export async function fetchAllRoomsController(req: Request, res: Response) {
+  const userId = req.userId;
+  if (!userId) {
+    res.status(401).json({
+      message: "User Id not found",
+    });
+    return;
+  }
+
+  try {
+    const rooms = await prismaClient.room.findMany({
+      where: {
+        participants: {
+          some: { id: userId },
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        joinCode: true,
+        admin: {
+          select: {
+            name: true,
+          },
+        },
+        adminId: true,
+        Chat: {
+          take: 1,
+          orderBy: {
+            serialNumber: "desc",
+          },
+          select: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+            content: true,
+          },
+        },
+        Draw: {
+          take: 10,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+    res.json({
+      message: "Rooms fetched successfully",
+      rooms,
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).json({
+      message: "Error fetching rooms",
+    });
   }
 }

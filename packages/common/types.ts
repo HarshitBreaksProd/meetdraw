@@ -13,6 +13,10 @@ export const UserSigninSchema = z.object({
   password: z.string().min(8),
 });
 
+export const CreateRoomSchema = z.object({
+  title: z.string(),
+});
+
 export const JoinRoomSchema = z.object({
   // (for http - server)
   joinCode: z.string().length(6),

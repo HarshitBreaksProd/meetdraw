@@ -123,11 +123,12 @@ wss.on("connection", (socket: WebSocket, req: Request) => {
         break;
       }
       case "draw": {
+        console.log("draw", validMessage.data);
         const socketList = activeRooms.get(validMessage.data.roomId!);
         socketList?.forEach((member) => {
           member.socket.send(
             JSON.stringify({
-              type: "chat_message",
+              type: "draw",
               userId: validMessage.data.userId!,
               roomId: validMessage.data.roomId!,
               content: validMessage.data.content!,

@@ -135,11 +135,18 @@ export async function infoController(req: Request, res: Response) {
   const userId = req.userId;
 
   try {
-    const user = await prismaClient.user.findUnique({
+    const userFound = await prismaClient.user.findUnique({
       where: {
         id: userId,
       },
     });
+
+    const user = {
+      id: userFound?.id,
+      username: userFound?.username,
+      name: userFound?.name,
+    };
+
     res.status(200).json({
       message: "User info",
       user,

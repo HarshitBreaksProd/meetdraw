@@ -3,14 +3,14 @@
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
 import ChatCard from "./ChatCard";
 import { useRef } from "react";
+import { Room } from "@/types";
 
-const ChatsView = () => {
+const ChatsView = ({ rooms }: { rooms: Room[] }) => {
   const chatsViewDivRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -25,21 +25,9 @@ const ChatsView = () => {
           ref={chatsViewDivRef}
           className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-2 [&::-webkit-scrollbar]:hidden py-1"
         >
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
-          <ChatCard />
+          {rooms.map((room) => (
+            <ChatCard key={room.id} room={room} />
+          ))}
         </CardContent>
       </Card>
     </div>

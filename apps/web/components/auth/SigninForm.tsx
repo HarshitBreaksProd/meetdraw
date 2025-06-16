@@ -18,6 +18,8 @@ import { useActionState, useEffect } from "react";
 import { BiInfoCircle } from "react-icons/bi";
 import { redirect } from "next/navigation";
 import { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
+import { setUser } from "@/lib/features/meetdraw/appSlice";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -42,19 +44,27 @@ export default function SigninForm({
 }) {
   const initialState = { message: "", errors: {} };
   const [state, formAction] = useActionState(signinAction, initialState);
+  const userState = useAppSelector((state) => state.app.user);
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     if (state.user) {
-      localStorage.setItem("user", JSON.stringify(state.user));
-      redirect("/home");
+      const user = {
+        id: state.user.id,
+        name: state.user.name,
+        username: state.user.username,
+      };
+      sessionStorage.setItem("user", JSON.stringify(user));
+      dispatch(setUser(user));
     }
   }, [state.user]);
 
-  const userInfo = localStorage.getItem("user");
+  useEffect(() => {
+    if (jwtCookie && jwtCookie.value && userState) {
+      redirect("/home");
+    }
+  }, [userState]);
 
-  if (jwtCookie && jwtCookie.value && userInfo) {
-    redirect("/home");
-  }
   return (
     <Card className="w-full max-w-sm rounded-lg z-2 font-cabinet-grotesk tracking-wide">
       <CardHeader>

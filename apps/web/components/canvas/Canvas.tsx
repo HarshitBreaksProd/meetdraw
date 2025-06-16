@@ -50,11 +50,16 @@ import { TbZoom } from "react-icons/tb";
 import { GrRedo, GrUndo } from "react-icons/gr";
 import { AiOutlineHome } from "react-icons/ai";
 import { redirect } from "next/navigation";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { setUser } from "@/lib/features/meetdraw/appSlice";
 
 const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isClient, setIsClient] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.app.user);
+  const room = useAppSelector((state) => state.app.room);
   const [activeAction, setActiveAction] = useState<
     "select" | "move" | "draw" | "resize" | "edit" | "erase" | "pan" | "zoom"
   >("select");
@@ -132,12 +137,18 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   };
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user")!);
-    if (!user) {
+    if (!token) {
       redirect("/signin");
     }
 
-    if (roomId && user) {
+    if (!user) {
+      const user = JSON.parse(sessionStorage.getItem("user")!);
+      if (user) {
+        dispatch(setUser(user));
+      }
+    }
+
+    if (user) {
       const socket = new WebSocket(
         `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}`
       );
@@ -157,7 +168,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     return () => {
       socket?.close();
     };
-  }, []);
+  }, [user, room]);
 
   const activeShapeRef = useRef(activeShape);
   const selectedShapeRef = useRef(selectedShape);
@@ -168,8 +179,10 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   const activeLineWidthRef = useRef<number>(activeLineWidth);
   const activeFontRef = useRef<string>(activeFont);
   const activeFontSizeRef = useRef<string>(activeFontSize);
+  const socketRef = useRef<WebSocket | null>(socket);
 
   useEffect(() => {
+    socketRef.current = socket;
     activeShapeRef.current = activeShape;
     activeActionRef.current = activeAction;
     selectedShapeRef.current = selectedShape;
@@ -237,13 +250,15 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     activeLineWidth,
     activeFont,
     activeFontSize,
+    socket,
   ]);
 
   function executeUndo() {
     const changes = performUndo(
       undoRedoArrayRef.current,
       undoRedoIndexRef.current,
-      diagrams.current
+      diagrams.current,
+      socketRef.current!
     );
 
     if (shapeSelectionBox.current && canvasRef.current) {
@@ -260,7 +275,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     const changes = performRedo(
       undoRedoArrayRef.current,
       undoRedoIndexRef.current,
-      diagrams.current
+      diagrams.current,
+      socketRef.current!
     );
 
     if (shapeSelectionBox.current && canvasRef.current) {
@@ -386,8 +402,13 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       }
     };
 
-    document.addEventListener("keydown", (event) => handleShortcuts(event));
-    document.addEventListener("keyup", (event) => handleShortcutsClose(event));
+    document.addEventListener("keydown", handleShortcuts);
+    document.addEventListener("keyup", handleShortcutsClose);
+
+    return () => {
+      document.removeEventListener("keydown", handleShortcuts);
+      document.removeEventListener("keyup", handleShortcutsClose);
+    };
   }, []);
 
   useEffect(() => {
@@ -512,7 +533,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
                 modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
               },
               undoRedoArrayRef.current,
-              undoRedoIndexRef.current
+              undoRedoIndexRef.current,
+              socketRef.current!
             );
             modifiedDrawState.current = null;
             originalDrawState.current = null;
@@ -543,7 +565,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
               modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current!)),
             },
             undoRedoArrayRef.current,
-            undoRedoIndexRef.current
+            undoRedoIndexRef.current,
+            socketRef.current!
           );
           undoRedoArrayRef.current = undoRedoArray;
           undoRedoIndexRef.current = undoRedoIndex;
@@ -564,7 +587,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
         startY.current = offsetY;
 
         activeDraw.current = {
-          id: Date.now().toString() /* TODO: Add userId to the id to make it unique */,
+          id: Date.now().toString() + "-" + user!.id,
           shape: currentActiveShape,
           strokeStyle: activeStrokeStyleRef.current,
           fillStyle: isText
@@ -575,11 +598,11 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
           lineWidth: activeLineWidthRef.current,
           points:
             isDrawing || isLineOrArrow
-              ? [{ x: startX.current!, y: startY.current! }]
-              : undefined,
-          startX: isDrawing ? undefined : startX.current!,
-          startY: isDrawing ? undefined : startY.current!,
-          text: isText ? textInp.current! : undefined,
+              ? [{ x: startX.current, y: startY.current }]
+              : [],
+          startX: isDrawing ? undefined : startX.current,
+          startY: isDrawing ? undefined : startY.current,
+          text: isText ? textInp.current : "",
           font: activeFontRef.current,
           fontSize: activeFontSizeRef.current,
         };
@@ -769,7 +792,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
               modifiedDraw: null,
             },
             undoRedoArrayRef.current,
-            undoRedoIndexRef.current
+            undoRedoIndexRef.current,
+            socketRef.current!
           );
           undoRedoArrayRef.current = undoRedoArray;
           undoRedoIndexRef.current = undoRedoIndex;
@@ -810,7 +834,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
               ),
             },
             undoRedoArrayRef.current,
-            undoRedoIndexRef.current
+            undoRedoIndexRef.current,
+            socketRef.current!
           );
           modifiedDrawState.current = null;
           originalDrawState.current = null;
@@ -854,7 +879,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
               ),
             },
             undoRedoArrayRef.current,
-            undoRedoIndexRef.current
+            undoRedoIndexRef.current,
+            socketRef.current!
           );
           modifiedDrawState.current = null;
           originalDrawState.current = null;
@@ -911,7 +937,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current)),
           },
           undoRedoArrayRef.current,
-          undoRedoIndexRef.current
+          undoRedoIndexRef.current,
+          socketRef.current!
         );
         undoRedoArrayRef.current = undoRedoArray;
         undoRedoIndexRef.current = undoRedoIndex;
@@ -942,7 +969,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
                 modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current!)),
               },
               undoRedoArrayRef.current,
-              undoRedoIndexRef.current
+              undoRedoIndexRef.current,
+              socketRef.current!
             );
             modifiedDrawState.current = null;
             originalDrawState.current = null;
@@ -995,7 +1023,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
                 modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
               },
               undoRedoArrayRef.current,
-              undoRedoIndexRef.current
+              undoRedoIndexRef.current,
+              socketRef.current!
             );
             modifiedDrawState.current = null;
             originalDrawState.current = null;
@@ -1061,7 +1090,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       canvasCurrent.removeEventListener("keydown", handleKeyDown);
       canvasCurrent.removeEventListener("wheel", handleScroll);
     };
-  }, []);
+  }, [socket]);
 
   const zoomToPoint = (newScale: number) => {
     const canvasCurrent = canvasRef.current;
@@ -1096,7 +1125,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
           },
           undoRedoArrayRef.current,
-          undoRedoIndexRef.current
+          undoRedoIndexRef.current,
+          socketRef.current!
         );
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
@@ -1124,7 +1154,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
           },
           undoRedoArrayRef.current,
-          undoRedoIndexRef.current
+          undoRedoIndexRef.current,
+          socketRef.current!
         );
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
@@ -1151,7 +1182,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
           },
           undoRedoArrayRef.current,
-          undoRedoIndexRef.current
+          undoRedoIndexRef.current,
+          socketRef.current!
         );
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
@@ -1176,7 +1208,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
           },
           undoRedoArrayRef.current,
-          undoRedoIndexRef.current
+          undoRedoIndexRef.current,
+          socketRef.current!
         );
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
@@ -1203,7 +1236,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
           },
           undoRedoArrayRef.current,
-          undoRedoIndexRef.current
+          undoRedoIndexRef.current,
+          socketRef.current!
         );
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(

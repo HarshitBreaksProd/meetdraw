@@ -1,6 +1,6 @@
 "use server";
 import { UserSigninSchema, UserSignupSchema } from "@workspace/common/types";
-import axios from "axios";
+import axiosInstance from "@/lib/axios/axiosInstance";
 import { cookies } from "next/headers";
 
 export interface FormState {
@@ -36,11 +36,7 @@ export async function signupAction(
   }
 
   try {
-    const res = await axios.post(
-      "http://localhost:3001/api/v1/auth/signup",
-      validatedFields.data,
-      { withCredentials: true }
-    );
+    const res = await axiosInstance.post("/auth/signup", validatedFields.data);
     if (res.data.token) {
       (await cookies()).set("jwt", res.data.token, {
         httpOnly: true,
@@ -83,11 +79,7 @@ export async function signinAction(
   }
 
   try {
-    const res = await axios.post(
-      "http://localhost:3001/api/v1/auth/signin",
-      validatedFields.data,
-      { withCredentials: true }
-    );
+    const res = await axiosInstance.post("/auth/signin", validatedFields.data);
     if (res.data.token) {
       (await cookies()).set("jwt", res.data.token, {
         httpOnly: true,

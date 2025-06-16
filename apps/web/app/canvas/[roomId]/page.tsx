@@ -9,7 +9,7 @@ interface CanvasPageProps {
 async function CanvasPage({ params }: CanvasPageProps) {
   const { roomId } = await params;
   const jwtCookie = (await cookies()).get("jwt");
-  if (!jwtCookie) {
+  if (!jwtCookie || !jwtCookie.value) {
     redirect("/signin");
   }
 
