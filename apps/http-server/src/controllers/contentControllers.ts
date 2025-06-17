@@ -95,6 +95,8 @@ export async function fetchAllChatMessages(req: Request, res: Response) {
   }
 
   const { roomId } = req.params;
+  const { lastSrNo } = req.query;
+
   try {
     const userExists = await prismaClient.room.findFirst({
       where: {
@@ -117,18 +119,61 @@ export async function fetchAllChatMessages(req: Request, res: Response) {
       return;
     }
 
-    const messages = await prismaClient.chat.findMany({
-      where: {
-        roomId: roomId,
-      },
-      take: 25,
-      orderBy: {
-        serialNumber: "desc",
-      },
-    });
+    let messages;
+
+    if (lastSrNo !== undefined) {
+      messages = await prismaClient.chat.findMany({
+        where: {
+          roomId: roomId,
+          serialNumber: {
+            lt: parseInt(lastSrNo as string),
+          },
+        },
+        select: {
+          id: true,
+          content: true,
+          serialNumber: true,
+          createdAt: true,
+          userId: true,
+          user: {
+            select: {
+              username: true,
+            },
+          },
+          roomId: true,
+        },
+        take: 25,
+        orderBy: {
+          serialNumber: "desc",
+        },
+      });
+    } else {
+      messages = await prismaClient.chat.findMany({
+        where: {
+          roomId: roomId,
+        },
+        select: {
+          id: true,
+          content: true,
+          serialNumber: true,
+          createdAt: true,
+          userId: true,
+          user: {
+            select: {
+              username: true,
+            },
+          },
+          roomId: true,
+        },
+        take: 25,
+        orderBy: {
+          serialNumber: "desc",
+        },
+      });
+    }
 
     res.json({
-      messages,
+      messages: messages.reverse(),
     });
   } catch (e) {
     console.log(e);

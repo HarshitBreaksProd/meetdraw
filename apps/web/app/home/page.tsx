@@ -10,12 +10,9 @@ const page = async () => {
     redirect("/signin");
   }
 
-  const { data: user } = await axiosInstance.get("/auth/info");
   const { data: rooms } = await axiosInstance.get("/room/all");
 
-  return (
-    <MainPage jwtCookie={jwtCookie} user={user.user} rooms={rooms.rooms} />
-  );
+  return <MainPage jwtCookie={jwtCookie} rooms={rooms.rooms} />;
 };
 
 export default page;

@@ -19,7 +19,7 @@ import { BiInfoCircle } from "react-icons/bi";
 import { redirect } from "next/navigation";
 import { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { setUser } from "@/lib/features/meetdraw/appSlice";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks/redux";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -48,7 +48,12 @@ export default function SigninForm({
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    if (state.user) {
+    const sessionUser = sessionStorage.getItem("user");
+
+    if (sessionUser && jwtCookie && jwtCookie.value) {
+      dispatch(setUser(JSON.parse(sessionUser)));
+      redirect("/home");
+    } else if (state.user) {
       const user = {
         id: state.user.id,
         name: state.user.name,
@@ -60,7 +65,7 @@ export default function SigninForm({
   }, [state.user]);
 
   useEffect(() => {
-    if (jwtCookie && jwtCookie.value && userState) {
+    if (jwtCookie && jwtCookie.value && userState !== null) {
       redirect("/home");
     }
   }, [userState]);

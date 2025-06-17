@@ -31,7 +31,9 @@ export const WebSocketMessageSchema = z.object({
     "draw",
     "error_message",
   ]),
-  roomId: z.string().optional(),
-  userId: z.string().optional(),
+  roomId: z.string(),
+  userId: z.string(),
   content: z.string().optional(),
 });
+
+export type WebSocketMessage = z.infer<typeof WebSocketMessageSchema>;

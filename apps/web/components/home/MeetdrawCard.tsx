@@ -4,14 +4,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-const MeetdrawCard = () => {
+import { Room } from "@/types";
+import { redirect } from "next/navigation";
+
+const MeetdrawCard = ({ room }: { room: Room }) => {
   return (
-    <Card className="block py-4 row-span-1 overflow-clip border cursor-pointer backdrop-blur-md bg-black/25 hover:-translate-y-[3px] transition-all duration-200 h-fit min-h-0">
+    <Card
+      onClick={() => redirect(`/canvas/${room.id}`)}
+      className="block py-4 row-span-1 overflow-clip border cursor-pointer backdrop-blur-md bg-black/25 hover:-translate-y-[3px] transition-all duration-200 h-fit min-h-0"
+    >
       <CardHeader className="flex items-center justify-between">
-        <CardTitle>Happy</CardTitle>
-        <p className="text-xs text-neutral-500">23/12</p>
+        <CardTitle>{room.title}</CardTitle>
+        <p className="text-xs text-neutral-500">
+          {new Date(room.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
       </CardHeader>
-      <CardContent></CardContent>
+      <CardContent>{room.Draw}</CardContent>
     </Card>
   );
 };

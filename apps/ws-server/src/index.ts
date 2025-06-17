@@ -8,61 +8,37 @@ config();
 interface WSConnection {
   userId: string;
   socket: WebSocket;
+  verified: boolean;
 }
 
 const wss = new WebSocketServer({ port: 8080 });
 
 const activeRooms = new Map<string, WSConnection[]>();
+const userVerificationStatus = new Map<
+  WebSocket,
+  { verified: boolean; userId?: string }
+>();
 
-wss.on("connection", (socket: WebSocket, req: Request) => {
+wss.on("connection", async (socket: WebSocket, req: Request) => {
   const searchParams = new URLSearchParams(req.url.split("?")[1]);
   const token = searchParams.get("token");
 
-  if (!token) {
-    console.log("Token not found");
-    socket.send(JSON.stringify({ type: "error", message: "Token not found" }));
-    socket.close();
-    return;
-  }
-
-  try {
-    const verified = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "kjhytfrde45678iuytrfdcfgy6tr"
-    ) as JwtPayload;
-
-    if (!verified?.id) {
-      console.log("User not authorised");
-      socket.send(
-        JSON.stringify({ type: "error", message: "User not authorised" })
-      );
-      socket.close();
-      return;
-    }
-
-    const userFound = prismaClient.user.findFirst({
-      where: { id: verified.id },
-    });
-
-    if (!userFound) {
-      console.log("User does not exist");
-      socket.send(
-        JSON.stringify({ type: "error", message: "User does not exist" })
-      );
-      socket.close();
-      return;
-    }
-  } catch (e) {
-    console.log(e);
-    console.log("Error verifying user");
-    socket.send(
-      JSON.stringify({ type: "error", message: "Error verifying user" })
-    );
-    socket.close();
-    return;
-  }
+  userVerificationStatus.set(socket, { verified: false });
 
   socket.on("message", async (data) => {
+    console.log(JSON.parse(data.toString()));
+    const userStatus = userVerificationStatus.get(socket);
+
+    if (!userStatus?.verified) {
+      socket.send(
+        JSON.stringify({
+          type: "error_message",
+          content: "User not verified",
+        })
+      );
+      return;
+    }
+
     const recievedData = JSON.parse(data as unknown as string);
     const validMessage = WebSocketMessageSchema.safeParse(recievedData);
 
@@ -81,17 +57,29 @@ wss.on("connection", (socket: WebSocket, req: Request) => {
       case "connect_room":
         activeRooms.set(validMessage.data.roomId!, [
           ...(activeRooms.get(validMessage.data.roomId!) || []),
-          { userId: validMessage.data.userId!, socket },
+          { userId: validMessage.data.userId!, socket, verified: true },
         ]);
         break;
       case "disconnect_room":
-        activeRooms.delete(validMessage.data.roomId!);
+        for (const [roomId, connections] of activeRooms.entries()) {
+          const updatedConnections = connections.filter(
+            (conn) => conn.socket !== socket
+          );
+          if (updatedConnections.length === 0) {
+            activeRooms.delete(roomId);
+          } else {
+            activeRooms.set(roomId, updatedConnections);
+          }
+        }
         break;
       case "chat_message": {
         const socketList = activeRooms.get(validMessage.data.roomId!);
 
         if (
-          !socketList?.includes({ userId: validMessage.data.userId!, socket })
+          !socketList?.some(
+            (conn) =>
+              conn.userId === validMessage.data.userId && conn.socket === socket
+          )
         ) {
           socket.send(
             JSON.stringify({
@@ -108,6 +96,19 @@ wss.on("connection", (socket: WebSocket, req: Request) => {
             roomId: validMessage.data.roomId!,
             content: validMessage.data.content!,
           },
+          select: {
+            id: true,
+            content: true,
+            serialNumber: true,
+            createdAt: true,
+            userId: true,
+            user: {
+              select: {
+                username: true,
+              },
+            },
+            roomId: true,
+          },
         });
 
         socketList?.forEach((member) => {
@@ -116,7 +117,7 @@ wss.on("connection", (socket: WebSocket, req: Request) => {
               type: "chat_message",
               userId: validMessage.data.userId!,
               roomId: validMessage.data.roomId!,
-              content: validMessage.data.content!,
+              content: JSON.stringify(addChat),
             })
           );
         });
@@ -139,4 +140,84 @@ wss.on("connection", (socket: WebSocket, req: Request) => {
       }
     }
   });
+
+  socket.on("close", () => {
+    userVerificationStatus.delete(socket);
+    for (const [roomId, connections] of activeRooms.entries()) {
+      const updatedConnections = connections.filter(
+        (conn) => conn.socket !== socket
+      );
+      if (updatedConnections.length === 0) {
+        activeRooms.delete(roomId);
+      } else {
+        activeRooms.set(roomId, updatedConnections);
+      }
+    }
+  });
+
+  if (!token) {
+    console.log("Token not found");
+    socket.send(
+      JSON.stringify({
+        type: "error_message",
+        content: "Token not found",
+      })
+    );
+    socket.close();
+    return;
+  }
+
+  try {
+    const verified = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "kjhytfrde45678iuytrfdcfgy6tr"
+    ) as JwtPayload;
+
+    if (!verified?.id) {
+      console.log("User not authorised");
+      socket.send(
+        JSON.stringify({
+          type: "error_message",
+          content: "User not authorised",
+        })
+      );
+      socket.close();
+      return;
+    }
+
+    const userFound = await prismaClient.user.findFirst({
+      where: { id: verified.id },
+    });
+
+    if (!userFound) {
+      console.log("User does not exist");
+      socket.send(
+        JSON.stringify({
+          type: "error_message",
+          content: "User does not exist",
+        })
+      );
+      socket.close();
+      return;
+    }
+
+    userVerificationStatus.set(socket, { verified: true, userId: verified.id });
+    socket.send(
+      JSON.stringify({
+        type: "connection_ready",
+        userId: verified.id,
+      })
+    );
+  } catch (e) {
+    console.log(e);
+    console.log("Error verifying user");
+    socket.send(
+      JSON.stringify({
+        type: "error_message",
+        content: "Error verifying user",
+      })
+    );
+    socket.close();
+    return;
+  }
 });

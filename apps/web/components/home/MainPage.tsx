@@ -9,22 +9,28 @@ import StateButton from "./StateButton";
 import CreateRoomView from "./CreateRoomView";
 import JoinRoomView from "./JoinRoomView";
 import { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks/redux";
 import { redirect } from "next/navigation";
-import { setUser } from "@/lib/features/meetdraw/appSlice";
-import { Room, User } from "@/types";
+import {
+  setHomeView,
+  setRooms,
+  setUser,
+  setBackgroundHaloPosition,
+} from "@/lib/features/meetdraw/appSlice";
+import { Room } from "@/types";
+import ChatRoom from "./ChatRoom";
+import BackgroundHalo from "./BackgroundHalo";
 
 const MainPage = ({
   jwtCookie,
-  user,
   rooms,
 }: {
-  jwtCookie: RequestCookie | undefined;
-  user: User;
+  jwtCookie: RequestCookie;
   rooms: Room[];
 }) => {
   const userState = useAppSelector((state) => state.app.user);
   const dispatch = useAppDispatch();
+
   useEffect(() => {
     if (!jwtCookie || !jwtCookie.value) {
       redirect("/signin");
@@ -37,23 +43,24 @@ const MainPage = ({
     }
   }, [jwtCookie, userState]);
 
-  const [position, setPosition] = useState<{ x: string; y: string }>({
-    x: "0",
-    y: "0",
-  });
   const homeRef = useRef<HTMLDivElement>(null);
 
-  const [viewState, setViewState] = useState<
-    "meetdraws" | "create-room" | "join-room" | "chat"
-  >("meetdraws");
+  const homeView = useAppSelector((state) => state.app.homeView);
 
   const handleMouseMove = (event: MouseEvent) => {
-    setPosition({ x: event.clientX.toString(), y: event.clientY.toString() });
+    dispatch(
+      setBackgroundHaloPosition({
+        x: event.clientX.toString(),
+        y: event.clientY.toString(),
+      })
+    );
   };
 
   useEffect(() => {
     const homeDivCurrent = homeRef.current;
     if (!homeDivCurrent) return;
+
+    dispatch(setRooms(rooms));
 
     homeDivCurrent.addEventListener("mousemove", handleMouseMove);
   }, []);
@@ -63,17 +70,10 @@ const MainPage = ({
       ref={homeRef}
       className="flex overflow-clip relative w-screen h-screen p-2 gap-2 font-cabinet-grotesk tracking-wide bg-[#101010]"
     >
-      <div
-        style={{
-          position: "absolute",
-          top: `${position.y}px`,
-          left: `${position.x}px`,
-        }}
-        className="w-[70px] h-[70px] blur-xl bg-green-600 rounded-full -translate-x-1/2 -translate-y-1/2"
-      />
+      <BackgroundHalo />
       <div className="h-full w-1/4 flex flex-col space-y-2 border p-2 rounded-xl backdrop-blur-md bg-black/10">
-        <UserCard user={user} />
-        <ChatsView rooms={rooms} />
+        <UserCard />
+        <ChatsView />
       </div>
       <div className="flex-1 min-h-0 w-3/4 flex flex-col space-y-2 p-2 border rounded-xl backdrop-blur-md bg-black/10">
         <div className="border  rounded-lg flex items-center justify-between py-3 px-4 backdrop-blur-md bg-black/40">
@@ -82,24 +82,23 @@ const MainPage = ({
             <StateButton
               variant="secondary"
               value="join-room"
-              onClick={setViewState}
+              onClick={() => dispatch(setHomeView("join-room"))}
             >
               Join Meetdraw
             </StateButton>
-            <StateButton value="create-room" onClick={setViewState}>
+            <StateButton
+              value="create-room"
+              onClick={() => dispatch(setHomeView("create-room"))}
+            >
               Add Meetdraw
             </StateButton>
           </div>
         </div>
-        <div className="border flex flex-col gap-2 rounded-xl p-4 flex-1 min-h-0 backdrop-blur-md bg-black/30">
-          {viewState === "meetdraws" && <MeetdrawsView />}
-          {viewState === "create-room" && (
-            <CreateRoomView setViewState={setViewState} />
-          )}
-          {viewState === "join-room" && (
-            <JoinRoomView setViewState={setViewState} />
-          )}
-          {/* {viewState === "chat" && <ChatView />} */}
+        <div className="border flex flex-col gap-2 rounded-xl p-2 pt-4 flex-1 min-h-0 backdrop-blur-md bg-black/30">
+          {homeView === "meetdraws" && <MeetdrawsView />}
+          {homeView === "create-room" && <CreateRoomView />}
+          {homeView === "join-room" && <JoinRoomView />}
+          {homeView === "chat" && <ChatRoom jwtCookie={jwtCookie} />}
         </div>
         <AppointmentCard />
       </div>

@@ -91,7 +91,6 @@ export async function fetchAllRoomsController(req: Request, res: Response) {
     });
     return;
   }
-
   try {
     const rooms = await prismaClient.room.findMany({
       where: {
@@ -103,9 +102,10 @@ export async function fetchAllRoomsController(req: Request, res: Response) {
         id: true,
         title: true,
         joinCode: true,
+        createdAt: true,
         admin: {
           select: {
-            name: true,
+            username: true,
           },
         },
         adminId: true,
@@ -117,10 +117,11 @@ export async function fetchAllRoomsController(req: Request, res: Response) {
           select: {
             user: {
               select: {
-                name: true,
+                username: true,
               },
             },
             content: true,
+            createdAt: true,
           },
         },
         Draw: {
@@ -131,9 +132,17 @@ export async function fetchAllRoomsController(req: Request, res: Response) {
         createdAt: "desc",
       },
     });
+
+    // Sort rooms by latest chat message timestamp
+    const sortedRooms = rooms.sort((a, b) => {
+      const aLatestChat = a.Chat[0]?.createdAt || a.createdAt;
+      const bLatestChat = b.Chat[0]?.createdAt || b.createdAt;
+      return new Date(bLatestChat).getTime() - new Date(aLatestChat).getTime();
+    });
+
     res.json({
       message: "Rooms fetched successfully",
-      rooms,
+      rooms: sortedRooms,
     });
   } catch (e) {
     console.log(e);

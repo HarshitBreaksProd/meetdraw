@@ -1,28 +1,33 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import FormInput from "../common/FormInput";
 import SubmitButton from "../common/SubmitButton";
 import { RxCross1 } from "react-icons/rx";
 import { joinRoomAction } from "@/actions/roomActions";
+import { redirect } from "next/navigation";
+import { setHomeView } from "@/lib/features/meetdraw/appSlice";
+import { useAppDispatch } from "@/lib/hooks/redux";
 
-const JoinRoomView = ({
-  setViewState,
-}: {
-  setViewState: (
-    viewState: "meetdraws" | "create-room" | "join-room" | "chat"
-  ) => void;
-}) => {
+const JoinRoomView = () => {
+  const dispatch = useAppDispatch();
   const [state, formAction, isPending] = useActionState(joinRoomAction, {
     message: "",
+    room: undefined,
   });
+
+  useEffect(() => {
+    if (state.room) {
+      redirect(`/canvas/${state.room.id}`);
+    }
+  }, [state.room]);
 
   return (
     <>
       <div className="flex w-full items-center justify-between">
         <h3 className="text-xl font-medium">Join a Meetdraw</h3>
         <button
-          onClick={() => setViewState("meetdraws")}
+          onClick={() => dispatch(setHomeView("meetdraws"))}
           className="cursor-pointer"
         >
           <RxCross1 className="w-4 h-4" />

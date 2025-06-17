@@ -26,12 +26,12 @@ export async function createRoomAction(
   }
 
   try {
-    const room = await axiosInstance.post<Room>(`/room/create`, {
+    const room = await axiosInstance.post(`/room/create`, {
       title,
     });
     return {
       message: "Room created successfully",
-      room: room.data,
+      room: room.data.room,
     };
   } catch (error: any) {
     console.log(error);
@@ -54,12 +54,12 @@ export async function joinRoomAction(
   }
 
   try {
-    const room = await axiosInstance.post<Room>(`/room/join`, {
+    const room = await axiosInstance.post(`/room/join`, {
       joinCode,
     });
     return {
       message: "Room joined successfully",
-      room: room.data,
+      room: room.data.room,
     };
   } catch (error: any) {
     console.log(error);

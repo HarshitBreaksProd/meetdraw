@@ -115,9 +115,6 @@ importers:
         specifier: ^9.2.0
         version: 9.2.0(@types/react@19.0.10)(react@19.0.0)(redux@5.0.1)
     devDependencies:
-      '@types/axios':
-        specifier: ^0.14.4
-        version: 0.14.4
       '@types/node':
         specifier: ^20
         version: 20.17.19
@@ -256,6 +253,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.0.0(react@19.0.0)
+      sonner:
+        specifier: ^2.0.5
+        version: 2.0.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       tailwind-merge:
         specifier: ^3.0.1
         version: 3.0.1
@@ -993,10 +993,6 @@ packages:
   '@turbo/workspaces@2.4.2':
     resolution: {integrity: sha512-HdXoW7LxCL+cvoEx8SBdg98o7DupN48hEvoEeUJ08R0ud8cLHCO8/2heyG/X/Y60pY9uxhpwjsmn9l5Dx75uMA==}
     hasBin: true
-
-  '@types/axios@0.14.4':
-    resolution: {integrity: sha512-9JgOaunvQdsQ/qW2OPmE5+hCeUB52lQSolecrFrthct55QekhmXEwT203s20RL+UHtCQc15y3VXpby9E7Kkh/g==}
-    deprecated: This is a stub types definition. axios provides its own type definitions, so you do not need this installed.
 
   '@types/bcrypt@5.0.2':
     resolution: {integrity: sha512-6atioO8Y75fNcbmj0G7UjI9lXN2pQ/IGJ2FWT4a/btd0Lk9lQalHLKhkgKVZ3r+spnmWUKfbMi1GEe9wyHQfNQ==}
@@ -2902,6 +2898,12 @@ packages:
     resolution: {integrity: sha512-D3YaD0aRxR3mEcqnidIs7ReYJFVzWdd6fXJYUM8ixcQcJRGTka/b3saV0KflYhyVJXKhb947GndU35SxYNResQ==}
     engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
 
+  sonner@2.0.5:
+    resolution: {integrity: sha512-YwbHQO6cSso3HBXlbCkgrgzDNIhws14r4MO87Ofy+cV2X7ES4pOoAK3+veSmVTvqNx1BWUxlhPmZzP00Crk2aQ==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -3875,12 +3877,6 @@ snapshots:
       picocolors: 1.0.1
       semver: 7.6.2
       update-check: 1.5.4
-
-  '@types/axios@0.14.4':
-    dependencies:
-      axios: 1.9.0
-    transitivePeerDependencies:
-      - debug
 
   '@types/bcrypt@5.0.2':
     dependencies:
@@ -6133,6 +6129,11 @@ snapshots:
     dependencies:
       ip-address: 9.0.5
       smart-buffer: 4.2.0
+
+  sonner@2.0.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
+    dependencies:
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
 
   source-map-js@1.2.1: {}
 

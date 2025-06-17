@@ -3,10 +3,16 @@ import { User, Room } from "@/types";
 
 const initialState: {
   user: User | null;
-  room: Room | null;
+  rooms: Room[] | null;
+  homeView: "meetdraws" | "create-room" | "join-room" | "chat";
+  activeRoom: Room | null;
+  backgroundHaloPosition: { x: string; y: string } | null;
 } = {
   user: null,
-  room: null,
+  rooms: null,
+  homeView: "meetdraws",
+  activeRoom: null,
+  backgroundHaloPosition: null,
 };
 
 const appSlice = createSlice({
@@ -16,16 +22,31 @@ const appSlice = createSlice({
     setUser: (state, action) => {
       state.user = action.payload;
     },
-    setRoom: (state, action) => {
-      state.room = action.payload;
+    setRooms: (state, action) => {
+      state.rooms = action.payload;
     },
-
+    setHomeView: (state, action) => {
+      state.homeView = action.payload;
+    },
+    setActiveRoom: (state, action) => {
+      state.activeRoom = action.payload;
+    },
     logout: (state) => {
       state.user = null;
-      state.room = null;
+      state.rooms = null;
+    },
+    setBackgroundHaloPosition: (state, action) => {
+      state.backgroundHaloPosition = action.payload;
     },
   },
 });
 
-export const { setUser, setRoom, logout } = appSlice.actions;
+export const {
+  setUser,
+  setRooms,
+  setHomeView,
+  setActiveRoom,
+  logout,
+  setBackgroundHaloPosition,
+} = appSlice.actions;
 export default appSlice.reducer;

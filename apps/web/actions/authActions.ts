@@ -53,9 +53,8 @@ export async function signupAction(
     };
   } catch (error) {
     console.log(error);
-    const message = (error as any).response.data.message;
-    if (message) {
-      return { message };
+    if ((error as any).response.data.message) {
+      return { message: (error as any).response.data.message };
     }
     return { message: "Could not create user." };
   }
@@ -96,9 +95,8 @@ export async function signinAction(
     };
   } catch (error) {
     console.log(error);
-    const message = (error as any).response.data.message;
-    if (message) {
-      return { message };
+    if ((error as any).response.data.message) {
+      return { message: (error as any).response.data.message };
     }
     return { message: "Could not login user." };
   }

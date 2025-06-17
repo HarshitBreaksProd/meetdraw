@@ -21,6 +21,16 @@ export interface Draw {
   points: { x: number; y: number }[];
 }
 
+export interface Message {
+  id: string;
+  content: string;
+  serialNumber: number;
+  userId: string;
+  roomId: string;
+  createdAt: Date;
+  user: { username: string };
+}
+
 export interface Action {
   type: "create" | "move" | "resize" | "erase" | "edit";
   originalDraw: Draw | null;
@@ -40,11 +50,13 @@ export interface Room {
   adminId: string;
   Chat: {
     user: {
-      name: string;
+      username: string;
     };
     content: string;
   }[];
+  Draw: Draw[];
   admin: {
-    name: string;
+    username: string;
   };
+  createdAt: string;
 }

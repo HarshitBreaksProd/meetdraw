@@ -1,5 +1,6 @@
 import SigninForm from "@/components/auth/SigninForm";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export default async function page() {
   const jwtCookie = (await cookies()).get("jwt");

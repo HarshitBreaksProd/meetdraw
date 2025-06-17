@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { BsFonts } from "react-icons/bs";
 import {
   PiArrowRight,
+  PiChatsCircle,
   PiCircle,
   PiCircleFill,
   PiCursor,
@@ -50,16 +51,24 @@ import { TbZoom } from "react-icons/tb";
 import { GrRedo, GrUndo } from "react-icons/gr";
 import { AiOutlineHome } from "react-icons/ai";
 import { redirect } from "next/navigation";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks/redux";
 import { setUser } from "@/lib/features/meetdraw/appSlice";
+import { useWebSocket } from "@/lib/hooks/websocket";
+import { toast } from "@workspace/ui/components/sonner";
+import { WebSocketMessage } from "@workspace/common";
+import ChatBar from "./ChatBar";
 
 const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
+  const [showChatBar, setShowChatBar] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isClient, setIsClient] = useState(false);
-  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const { socket, isLoading, isError } = useWebSocket(
+    `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}`
+  );
+  const [serverReady, setServerReady] = useState(false);
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.app.user);
-  const room = useAppSelector((state) => state.app.room);
+  const room = useAppSelector((state) => state.app.activeRoom);
   const [activeAction, setActiveAction] = useState<
     "select" | "move" | "draw" | "resize" | "edit" | "erase" | "pan" | "zoom"
   >("select");
@@ -89,6 +98,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [canUndo, setCanUndo] = useState<boolean>(false);
   const [canRedo, setCanRedo] = useState<boolean>(false);
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const activeDraw = useRef<Draw>(null);
   const selectedDraw = useRef<Draw>(null);
   const originalDrawState = useRef<Draw>(null);
@@ -147,28 +157,56 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
         dispatch(setUser(user));
       }
     }
+  }, [user, token, dispatch]);
 
-    if (user) {
-      const socket = new WebSocket(
-        `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}`
-      );
-      setSocket(socket);
+  useEffect(() => {
+    if (user && socket && !isLoading && !isError) {
+      if (serverReady) {
+        const connectMessage: WebSocketMessage = {
+          type: "connect_room",
+          roomId: roomId,
+          userId: user.id,
+        };
+        socket.send(JSON.stringify(connectMessage));
+      }
 
-      socket.onopen = () => {
-        socket.send(
-          JSON.stringify({
-            type: "connect_room",
-            roomId: roomId,
-            userId: user.id!,
-          })
-        );
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "connection_ready") {
+          setServerReady(true);
+        }
+
+        if (data.type === "error_message") {
+          toast.error(data.content, {
+            description: "Please try again",
+          });
+        }
       };
     }
 
     return () => {
-      socket?.close();
+      if (user && socket && serverReady) {
+        const disconnectMessage: WebSocketMessage = {
+          type: "disconnect_room",
+          roomId: roomId,
+          userId: user.id,
+        };
+        socket.send(JSON.stringify(disconnectMessage));
+      }
     };
-  }, [user, room]);
+  }, [user, socket, isLoading, isError, roomId, serverReady]);
+
+  const closeSocket = () => {
+    if (user && socket && serverReady) {
+      const disconnectMessage: WebSocketMessage = {
+        type: "disconnect_room",
+        roomId: roomId,
+        userId: user.id,
+      };
+      socket.send(JSON.stringify(disconnectMessage));
+    }
+  };
 
   const activeShapeRef = useRef(activeShape);
   const selectedShapeRef = useRef(selectedShape);
@@ -1250,7 +1288,11 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     }
   };
 
-  if (socket === null) {
+  if (isError) {
+    return <div>Error</div>;
+  }
+
+  if (isLoading) {
     return (
       <div className="h-screen w-screen relative flex items-center justify-center bg-neutral-900">
         <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-green-500" />
@@ -1265,13 +1307,30 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
           <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">
             <Button
               size="icon"
-              className={`bg-transparent relative p-2 ${activeAction === "draw" && activeShape === "line" ? "bg-green-600 hover:bg-green-600" : "hover:bg-green-600/20"} cursor-pointer`}
-              onClick={() => redirect("/home")}
+              className={`bg-transparent relative p-2 hover:bg-green-600/20 cursor-pointer`}
+              onClick={() => {
+                closeSocket();
+                redirect("/home");
+              }}
             >
               <AiOutlineHome className="text-white" size="18" />
             </Button>
           </div>
         </div>
+
+        <div className="fixed z-2 w-fit h-fit bg-black rounded-lg right-3 top-3">
+          <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">
+            <Button
+              size="icon"
+              className={`bg-transparent relative p-2 hover:bg-green-600/20 cursor-pointer`}
+              onClick={() => {}}
+            >
+              <PiChatsCircle className="text-white" size="18" />
+            </Button>
+          </div>
+        </div>
+
+        <ChatBar socket={socket!} closeChat={() => setShowChatBar(false)} />
 
         <div className="fixed z-2 w-fit h-fit bg-black rounded-lg left-1/2 top-3 transform -translate-x-1/2">
           <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">

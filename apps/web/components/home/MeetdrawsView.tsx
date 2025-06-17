@@ -1,8 +1,16 @@
+"use client";
+
 import { Input } from "@workspace/ui/components/input";
 import { BiSearch } from "react-icons/bi";
 import MeetdrawCard from "./MeetdrawCard";
+import { useAppSelector } from "@/lib/hooks/redux";
 
 const MeetdrawsView = () => {
+  const rooms = useAppSelector((state) => state.app.rooms) || [];
+
+  if (!rooms) {
+    return null;
+  }
   return (
     <>
       <div className="flex w-full items-center justify-between">
@@ -19,37 +27,9 @@ const MeetdrawsView = () => {
         </div>
       </div>
       <div className="grid grid-cols-3 auto-rows-min gap-4 flex-1 min-h-0 overflow-y-auto py-1 [&::-webkit-scrollbar]:hidden">
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
-        <MeetdrawCard />
+        {rooms.map((room) => (
+          <MeetdrawCard key={room.id} room={room} />
+        ))}
       </div>
     </>
   );

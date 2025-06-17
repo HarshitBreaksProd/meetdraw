@@ -26,7 +26,6 @@
     "react-redux": "^9.2.0"
   },
   "devDependencies": {
-    "@types/axios": "^0.14.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

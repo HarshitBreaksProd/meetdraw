@@ -38,13 +38,14 @@ model Room {
 }
 
 model Chat {
-  id           String @id @default(uuid())
-  serialNumber Int    @default(autoincrement())
+  id           String   @id @default(uuid())
+  serialNumber Int      @default(autoincrement())
   content      String
-  user         User   @relation(references: [id], fields: [userId])
+  user         User     @relation(references: [id], fields: [userId])
   userId       String
-  room         Room   @relation(references: [id], fields: [roomId])
+  room         Room     @relation(references: [id], fields: [roomId])
   roomId       String
+  createdAt    DateTime @default(now())
 }
 
 enum Shape {

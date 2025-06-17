@@ -19,7 +19,7 @@ import { useActionState, useEffect } from "react";
 import { redirect } from "next/navigation";
 import { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { setUser } from "@/lib/features/meetdraw/appSlice";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks/redux";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
