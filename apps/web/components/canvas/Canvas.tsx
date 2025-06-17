@@ -11,7 +11,7 @@ import {
   getDrawAtPosition,
   hoverOverSelectionBox,
 } from "@/lib/canvas/selectFunctions";
-import { Action, Draw } from "@/types";
+import { Action, Draw, Message } from "@/types";
 import { Button } from "@workspace/ui/components/button";
 import { useEffect, useRef, useState } from "react";
 import { BsFonts } from "react-icons/bs";
@@ -37,6 +37,7 @@ import {
 } from "react-icons/pi";
 import { LiaHandPaper, LiaHandRock } from "react-icons/lia";
 import {
+  performAction,
   performRedo,
   performUndo,
   pushToUndoRedoArray,
@@ -57,6 +58,11 @@ import { useWebSocket } from "@/lib/hooks/websocket";
 import { toast } from "@workspace/ui/components/sonner";
 import { WebSocketMessage } from "@workspace/common";
 import ChatBar from "./ChatBar";
+import {
+  fetchAllChatMessages,
+  fetchMoreChatMessages,
+} from "@/actions/chatActions";
+import { fetchAllDraws } from "@/actions/contentActions";
 
 const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   const [showChatBar, setShowChatBar] = useState(false);
@@ -99,6 +105,11 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   const [canUndo, setCanUndo] = useState<boolean>(false);
   const [canRedo, setCanRedo] = useState<boolean>(false);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const lastSrNoRef = useRef<number>(0);
+  const chatMessageInputRef = useRef<HTMLTextAreaElement>(null);
+  const unreadMessagesRef = useRef<boolean>(false);
+  const [isLoadingMoreMessages, setIsLoadingMoreMessages] =
+    useState<boolean>(false);
   const activeDraw = useRef<Draw>(null);
   const selectedDraw = useRef<Draw>(null);
   const originalDrawState = useRef<Draw>(null);
@@ -157,6 +168,13 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
         dispatch(setUser(user));
       }
     }
+
+    const fetchDraws = async () => {
+      const draws = await fetchAllDraws(roomId);
+      diagrams.current = draws;
+    };
+
+    fetchDraws();
   }, [user, token, dispatch]);
 
   useEffect(() => {
@@ -173,14 +191,29 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        if (data.type === "connection_ready") {
-          setServerReady(true);
-        }
-
-        if (data.type === "error_message") {
-          toast.error(data.content, {
-            description: "Please try again",
-          });
+        switch (data.type) {
+          case "connection_ready":
+            setServerReady(true);
+            break;
+          case "error_message":
+            toast.error(data.content, {
+              description: "Please try again",
+            });
+            break;
+          case "chat_message":
+            const message = JSON.parse(data.content);
+            if (message.userId !== user?.id) {
+              unreadMessagesRef.current = true;
+            }
+            setChatMessages((prev) => [...prev, message]);
+            break;
+          case "draw":
+            if (data.userId === user?.id) {
+              return;
+            }
+            const action = JSON.parse(data.content);
+            diagrams.current = performAction(action, diagrams.current);
+            break;
         }
       };
     }
@@ -196,6 +229,62 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       }
     };
   }, [user, socket, isLoading, isError, roomId, serverReady]);
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (roomId) {
+        try {
+          const messages = await fetchAllChatMessages(roomId);
+          setChatMessages(messages);
+          if (messages.length > 0) {
+            lastSrNoRef.current = messages[0]!.serialNumber;
+          }
+        } catch (error) {
+          console.error("Failed to fetch chat messages:", error);
+        }
+      }
+    };
+
+    fetchMessages();
+  }, [roomId]);
+
+  const handleSendMessage = (content: string) => {
+    if (!socket) {
+      toast.error("Connection failed, please refresh and try again");
+      return;
+    }
+
+    if (socket && serverReady && content.trim()) {
+      const chatMessage: WebSocketMessage = {
+        type: "chat_message",
+        roomId: roomId,
+        userId: user!.id,
+        content: content.trim(),
+      };
+      socket.send(JSON.stringify(chatMessage));
+    }
+  };
+
+  const handleLoadMoreMessages = async (): Promise<Message[]> => {
+    if (!lastSrNoRef.current || isLoadingMoreMessages) return [];
+
+    setIsLoadingMoreMessages(true);
+    try {
+      const messages = await fetchMoreChatMessages(roomId, lastSrNoRef.current);
+      if (messages.length > 0) {
+        setChatMessages((prev) => [...messages, ...prev]);
+        lastSrNoRef.current = messages[0]?.serialNumber || 0;
+      } else {
+        lastSrNoRef.current = 0;
+      }
+      return messages;
+    } catch (error) {
+      console.error("Failed to load more messages:", error);
+      return [];
+    } finally {
+      setIsLoadingMoreMessages(false);
+    }
+  };
 
   const closeSocket = () => {
     if (user && socket && serverReady) {
@@ -217,10 +306,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   const activeLineWidthRef = useRef<number>(activeLineWidth);
   const activeFontRef = useRef<string>(activeFont);
   const activeFontSizeRef = useRef<string>(activeFontSize);
-  const socketRef = useRef<WebSocket | null>(socket);
 
   useEffect(() => {
-    socketRef.current = socket;
     activeShapeRef.current = activeShape;
     activeActionRef.current = activeAction;
     selectedShapeRef.current = selectedShape;
@@ -292,11 +379,14 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   ]);
 
   function executeUndo() {
+    if (!socket) return;
     const changes = performUndo(
       undoRedoArrayRef.current,
       undoRedoIndexRef.current,
       diagrams.current,
-      socketRef.current!
+      socket,
+      user!.id,
+      roomId
     );
 
     if (shapeSelectionBox.current && canvasRef.current) {
@@ -310,11 +400,14 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   }
 
   function executeRedo() {
+    if (!socket) return;
     const changes = performRedo(
       undoRedoArrayRef.current,
       undoRedoIndexRef.current,
       diagrams.current,
-      socketRef.current!
+      socket,
+      user!.id,
+      roomId
     );
 
     if (shapeSelectionBox.current && canvasRef.current) {
@@ -332,11 +425,11 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   }, []);
 
   useEffect(() => {
-    // shortcuts
     const handleShortcuts = (event: KeyboardEvent) => {
       if (
         activeDraw.current?.shape !== "text" &&
-        selectedDraw.current?.shape !== "text"
+        selectedDraw.current?.shape !== "text" &&
+        chatMessageInputRef.current !== document.activeElement
       ) {
         switch (event.key) {
           case "1":
@@ -561,23 +654,27 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       if (activeActionRef.current === "edit") {
         if (selectedDraw.current && selectedDraw.current.shape === "text") {
           diagrams.current.push(selectedDraw.current);
-          if (originalDrawState.current && modifiedDrawState.current) {
+          if (originalDrawState.current && selectedDraw.current && socket) {
+            const action: Action = {
+              type: "edit",
+              originalDraw: JSON.parse(
+                JSON.stringify(originalDrawState.current)
+              ),
+              modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
+            };
             const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-              {
-                type: "edit",
-                originalDraw: JSON.parse(
-                  JSON.stringify(originalDrawState.current)
-                ),
-                modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
-              },
+              action,
               undoRedoArrayRef.current,
               undoRedoIndexRef.current,
-              socketRef.current!
+              socket,
+              user!.id,
+              roomId
             );
             modifiedDrawState.current = null;
             originalDrawState.current = null;
             undoRedoArrayRef.current = undoRedoArray;
             undoRedoIndexRef.current = undoRedoIndex;
+
             updateUndoRedoState();
           }
           textInp.current = "";
@@ -596,19 +693,25 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       if (activeActionRef.current === "draw") {
         if (activeDraw.current && activeDraw.current.shape === "text") {
           diagrams.current.push(activeDraw.current);
-          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-            {
+          if (socket) {
+            const action: Action = {
               type: "create",
               originalDraw: null,
               modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current!)),
-            },
-            undoRedoArrayRef.current,
-            undoRedoIndexRef.current,
-            socketRef.current!
-          );
-          undoRedoArrayRef.current = undoRedoArray;
-          undoRedoIndexRef.current = undoRedoIndex;
-          updateUndoRedoState();
+            };
+            const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+              action,
+              undoRedoArrayRef.current,
+              undoRedoIndexRef.current,
+              socket,
+              user!.id,
+              roomId
+            );
+
+            undoRedoArrayRef.current = undoRedoArray;
+            undoRedoIndexRef.current = undoRedoIndex;
+            updateUndoRedoState();
+          }
           textInp.current = "";
           activeDraw.current = null;
           shapeSelectionBox.current = null;
@@ -823,19 +926,25 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
           (draw) => !toErase.current.includes(draw)
         );
         toErase.current.forEach((draw) => {
-          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-            {
+          if (socket) {
+            const action: Action = {
               type: "erase",
               originalDraw: JSON.parse(JSON.stringify(draw)),
               modifiedDraw: null,
-            },
-            undoRedoArrayRef.current,
-            undoRedoIndexRef.current,
-            socketRef.current!
-          );
-          undoRedoArrayRef.current = undoRedoArray;
-          undoRedoIndexRef.current = undoRedoIndex;
-          updateUndoRedoState();
+            };
+            const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+              action,
+              undoRedoArrayRef.current,
+              undoRedoIndexRef.current,
+              socket,
+              user!.id,
+              roomId
+            );
+
+            undoRedoArrayRef.current = undoRedoArray;
+            undoRedoIndexRef.current = undoRedoIndex;
+            updateUndoRedoState();
+          }
         });
         isErasing.current = false;
         toErase.current = [];
@@ -860,21 +969,21 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             selectedDraw.current!.startY = a;
           }
         }
-        if (originalDrawState.current && modifiedDrawState.current) {
+        if (originalDrawState.current && modifiedDrawState.current && socket) {
+          const action: Action = {
+            type: "resize",
+            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+            modifiedDraw: JSON.parse(JSON.stringify(modifiedDrawState.current)),
+          };
           const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-            {
-              type: "resize",
-              originalDraw: JSON.parse(
-                JSON.stringify(originalDrawState.current)
-              ),
-              modifiedDraw: JSON.parse(
-                JSON.stringify(modifiedDrawState.current)
-              ),
-            },
+            action,
             undoRedoArrayRef.current,
             undoRedoIndexRef.current,
-            socketRef.current!
+            socket,
+            user!.id,
+            roomId
           );
+
           modifiedDrawState.current = null;
           originalDrawState.current = null;
           undoRedoArrayRef.current = undoRedoArray;
@@ -905,21 +1014,21 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
           }
           return;
         }
-        if (originalDrawState.current && modifiedDrawState.current) {
+        if (originalDrawState.current && modifiedDrawState.current && socket) {
+          const action: Action = {
+            type: "move",
+            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+            modifiedDraw: JSON.parse(JSON.stringify(modifiedDrawState.current)),
+          };
           const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-            {
-              type: "move",
-              originalDraw: JSON.parse(
-                JSON.stringify(originalDrawState.current)
-              ),
-              modifiedDraw: JSON.parse(
-                JSON.stringify(modifiedDrawState.current)
-              ),
-            },
+            action,
             undoRedoArrayRef.current,
             undoRedoIndexRef.current,
-            socketRef.current!
+            socket,
+            user!.id,
+            roomId
           );
+
           modifiedDrawState.current = null;
           originalDrawState.current = null;
           undoRedoArrayRef.current = undoRedoArray;
@@ -967,20 +1076,26 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
         }
 
         diagrams.current.push(activeDraw.current);
-
-        const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
+        if (socket) {
+          const action: Action = {
             type: "create",
             originalDraw: null,
             modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current)),
-          },
-          undoRedoArrayRef.current,
-          undoRedoIndexRef.current,
-          socketRef.current!
-        );
-        undoRedoArrayRef.current = undoRedoArray;
-        undoRedoIndexRef.current = undoRedoIndex;
-        updateUndoRedoState();
+          };
+
+          const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
+            action,
+            undoRedoArrayRef.current,
+            undoRedoIndexRef.current,
+            socket,
+            user!.id,
+            roomId
+          );
+
+          undoRedoArrayRef.current = undoRedoArray;
+          undoRedoIndexRef.current = undoRedoIndex;
+          updateUndoRedoState();
+        }
         activeDraw.current = null;
         startX.current = null;
         startY.current = null;
@@ -994,21 +1109,23 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
 
       if (activeActionRef.current === "draw") {
         if (!activeDraw.current || activeDraw.current.shape !== "text") return;
-
         event.preventDefault();
 
         if (event.key === "Enter") {
           diagrams.current.push(activeDraw.current!);
-          if (originalDrawState.current && modifiedDrawState.current) {
+          if (socket) {
+            const action: Action = {
+              type: "create",
+              originalDraw: null,
+              modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current!)),
+            };
             const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-              {
-                type: "create",
-                originalDraw: null,
-                modifiedDraw: JSON.parse(JSON.stringify(activeDraw.current!)),
-              },
+              action,
               undoRedoArrayRef.current,
               undoRedoIndexRef.current,
-              socketRef.current!
+              socket,
+              user!.id,
+              roomId
             );
             modifiedDrawState.current = null;
             originalDrawState.current = null;
@@ -1051,19 +1168,23 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
 
         if (event.key === "Enter") {
           diagrams.current.push(selectedDraw.current!);
-          if (originalDrawState.current && modifiedDrawState.current) {
+          if (originalDrawState.current && selectedDraw.current && socket) {
+            const action: Action = {
+              type: "edit",
+              originalDraw: JSON.parse(
+                JSON.stringify(originalDrawState.current)
+              ),
+              modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
+            };
             const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-              {
-                type: "edit",
-                originalDraw: JSON.parse(
-                  JSON.stringify(originalDrawState.current)
-                ),
-                modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current!)),
-              },
+              action,
               undoRedoArrayRef.current,
               undoRedoIndexRef.current,
-              socketRef.current!
+              socket,
+              user!.id,
+              roomId
             );
+
             modifiedDrawState.current = null;
             originalDrawState.current = null;
             undoRedoArrayRef.current = undoRedoArray;
@@ -1154,18 +1275,24 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     if (selectedDraw.current) {
       selectedDraw.current.fillStyle = color;
       if (
-        originalDrawState.current?.fillStyle !== selectedDraw.current.fillStyle
+        originalDrawState.current?.fillStyle !==
+          selectedDraw.current.fillStyle &&
+        socket
       ) {
+        const action: Action = {
+          type: "edit",
+          originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+          modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+        };
         const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
-            type: "edit",
-            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
-            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
-          },
+          action,
           undoRedoArrayRef.current,
           undoRedoIndexRef.current,
-          socketRef.current!
+          socket,
+          user!.id,
+          roomId
         );
+
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
           JSON.stringify(selectedDraw.current)
@@ -1183,18 +1310,23 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       selectedDraw.current.strokeStyle = color;
       if (
         originalDrawState.current?.strokeStyle !==
-        selectedDraw.current.strokeStyle
+          selectedDraw.current.strokeStyle &&
+        socket
       ) {
+        const action: Action = {
+          type: "edit",
+          originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+          modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+        };
         const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
-            type: "edit",
-            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
-            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
-          },
+          action,
           undoRedoArrayRef.current,
           undoRedoIndexRef.current,
-          socketRef.current!
+          socket,
+          user!.id,
+          roomId
         );
+
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
           JSON.stringify(selectedDraw.current)
@@ -1211,18 +1343,24 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     if (selectedDraw.current) {
       selectedDraw.current.lineWidth = width;
       if (
-        originalDrawState.current?.lineWidth !== selectedDraw.current.lineWidth
+        originalDrawState.current?.lineWidth !==
+          selectedDraw.current.lineWidth &&
+        socket
       ) {
+        const action: Action = {
+          type: "edit",
+          originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+          modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+        };
         const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
-            type: "edit",
-            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
-            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
-          },
+          action,
           undoRedoArrayRef.current,
           undoRedoIndexRef.current,
-          socketRef.current!
+          socket,
+          user!.id,
+          roomId
         );
+
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
           JSON.stringify(selectedDraw.current)
@@ -1238,17 +1376,24 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     setActiveFont(font);
     if (selectedDraw.current) {
       selectedDraw.current.font = font;
-      if (originalDrawState.current?.font !== selectedDraw.current.font) {
+      if (
+        originalDrawState.current?.font !== selectedDraw.current.font &&
+        socket
+      ) {
+        const action: Action = {
+          type: "edit",
+          originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+          modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+        };
         const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
-            type: "edit",
-            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
-            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
-          },
+          action,
           undoRedoArrayRef.current,
           undoRedoIndexRef.current,
-          socketRef.current!
+          socket,
+          user!.id,
+          roomId
         );
+
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
           JSON.stringify(selectedDraw.current)
@@ -1265,18 +1410,23 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
     if (selectedDraw.current) {
       selectedDraw.current.fontSize = size.toString();
       if (
-        originalDrawState.current?.fontSize !== selectedDraw.current.fontSize
+        originalDrawState.current?.fontSize !== selectedDraw.current.fontSize &&
+        socket
       ) {
+        const action: Action = {
+          type: "edit",
+          originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
+          modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
+        };
         const { undoRedoArray, undoRedoIndex } = pushToUndoRedoArray(
-          {
-            type: "edit",
-            originalDraw: JSON.parse(JSON.stringify(originalDrawState.current)),
-            modifiedDraw: JSON.parse(JSON.stringify(selectedDraw.current)),
-          },
+          action,
           undoRedoArrayRef.current,
           undoRedoIndexRef.current,
-          socketRef.current!
+          socket,
+          user!.id,
+          roomId
         );
+
         modifiedDrawState.current = null;
         originalDrawState.current = JSON.parse(
           JSON.stringify(selectedDraw.current)
@@ -1289,7 +1439,11 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   };
 
   if (isError) {
-    return <div>Error</div>;
+    return (
+      <div className="h-screen w-screen relative flex items-center justify-center bg-neutral-900">
+        <p className="text-white">Faced some Errors, Please Refresh</p>
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -1322,15 +1476,31 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
           <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">
             <Button
               size="icon"
-              className={`bg-transparent relative p-2 hover:bg-green-600/20 cursor-pointer`}
-              onClick={() => {}}
+              className={`bg-transparent relative p-2 hover:bg-green-600/20 cursor-pointer ${showChatBar ? "bg-green-600/40" : ""} ${unreadMessagesRef.current ? "bg-green-600/5" : ""}`}
+              onClick={() => {
+                setShowChatBar(!showChatBar);
+                unreadMessagesRef.current = false;
+              }}
             >
               <PiChatsCircle className="text-white" size="18" />
+              {unreadMessagesRef.current && (
+                <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full" />
+              )}
             </Button>
           </div>
         </div>
 
-        <ChatBar socket={socket!} closeChat={() => setShowChatBar(false)} />
+        {showChatBar && (
+          <ChatBar
+            closeChat={() => setShowChatBar(false)}
+            messages={chatMessages}
+            user={user!}
+            onSendMessage={handleSendMessage}
+            onLoadMoreMessages={handleLoadMoreMessages}
+            isLoadingMore={isLoadingMoreMessages}
+            chatMessageInputRef={chatMessageInputRef}
+          />
+        )}
 
         <div className="fixed z-2 w-fit h-fit bg-black rounded-lg left-1/2 top-3 transform -translate-x-1/2">
           <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">

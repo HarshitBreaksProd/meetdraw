@@ -26,7 +26,6 @@ wss.on("connection", async (socket: WebSocket, req: Request) => {
   userVerificationStatus.set(socket, { verified: false });
 
   socket.on("message", async (data) => {
-    console.log(JSON.parse(data.toString()));
     const userStatus = userVerificationStatus.get(socket);
 
     if (!userStatus?.verified) {
@@ -89,53 +88,143 @@ wss.on("connection", async (socket: WebSocket, req: Request) => {
           );
           return;
         }
-
-        const addChat = await prismaClient.chat.create({
-          data: {
-            userId: validMessage.data.userId!,
-            roomId: validMessage.data.roomId!,
-            content: validMessage.data.content!,
-          },
-          select: {
-            id: true,
-            content: true,
-            serialNumber: true,
-            createdAt: true,
-            userId: true,
-            user: {
-              select: {
-                username: true,
-              },
-            },
-            roomId: true,
-          },
-        });
-
-        socketList?.forEach((member) => {
-          member.socket.send(
-            JSON.stringify({
-              type: "chat_message",
-              userId: validMessage.data.userId!,
-              roomId: validMessage.data.roomId!,
-              content: JSON.stringify(addChat),
-            })
-          );
-        });
-        break;
-      }
-      case "draw": {
-        console.log("draw", validMessage.data);
-        const socketList = activeRooms.get(validMessage.data.roomId!);
-        socketList?.forEach((member) => {
-          member.socket.send(
-            JSON.stringify({
-              type: "draw",
+        try {
+          const addChat = await prismaClient.chat.create({
+            data: {
               userId: validMessage.data.userId!,
               roomId: validMessage.data.roomId!,
               content: validMessage.data.content!,
+            },
+            select: {
+              id: true,
+              content: true,
+              serialNumber: true,
+              createdAt: true,
+              userId: true,
+              user: {
+                select: {
+                  username: true,
+                },
+              },
+              roomId: true,
+            },
+          });
+          socketList?.forEach((member) => {
+            member.socket.send(
+              JSON.stringify({
+                type: "chat_message",
+                userId: validMessage.data.userId!,
+                roomId: validMessage.data.roomId!,
+                content: JSON.stringify(addChat),
+              })
+            );
+          });
+        } catch (e) {
+          console.log(e);
+          socket.send(
+            JSON.stringify({
+              type: "error_message",
+              content: "Error adding chat message",
             })
           );
-        });
+        }
+
+        break;
+      }
+      case "draw": {
+        const socketList = activeRooms.get(validMessage.data.roomId!);
+
+        if (
+          !socketList?.some(
+            (conn) =>
+              conn.userId === validMessage.data.userId && conn.socket === socket
+          )
+        ) {
+          socket.send(
+            JSON.stringify({
+              type: "error_message",
+              content: "Not connected to the room",
+            })
+          );
+          return;
+        }
+
+        const drawData = JSON.parse(validMessage.data.content!);
+
+        try {
+          let addedDraw;
+          let draw;
+          switch (drawData.type) {
+            case "create":
+              draw = drawData.modifiedDraw;
+              addedDraw = await prismaClient.draw.create({
+                data: {
+                  id: draw.id,
+                  shape: draw.shape,
+                  strokeStyle: draw.strokeStyle,
+                  fillStyle: draw.fillStyle,
+                  lineWidth: draw.lineWidth,
+                  font: draw.font,
+                  fontSize: draw.fontSize,
+                  startX: draw.startX,
+                  startY: draw.startY,
+                  endX: draw.endX,
+                  endY: draw.endY,
+                  text: draw.text,
+                  points: draw.points,
+                  roomId: validMessage.data.roomId!,
+                },
+              });
+              break;
+            case "move":
+            case "edit":
+            case "resize":
+              draw = drawData.modifiedDraw;
+              addedDraw = await prismaClient.draw.update({
+                where: { id: draw.id },
+                data: {
+                  startX: draw.startX,
+                  startY: draw.startY,
+                  endX: draw.endX,
+                  endY: draw.endY,
+                  text: draw.text,
+                  points: draw.points,
+                  shape: draw.shape,
+                  strokeStyle: draw.strokeStyle,
+                  fillStyle: draw.fillStyle,
+                  lineWidth: draw.lineWidth,
+                  font: draw.font,
+                  fontSize: draw.fontSize,
+                },
+              });
+              break;
+            case "erase":
+              draw = drawData.originalDraw;
+              addedDraw = await prismaClient.draw.delete({
+                where: { id: draw.id },
+              });
+              break;
+          }
+
+          socketList?.forEach((member) => {
+            member.socket.send(
+              JSON.stringify({
+                type: "draw",
+                userId: validMessage.data.userId!,
+                roomId: validMessage.data.roomId!,
+                content: validMessage.data.content!,
+              })
+            );
+          });
+        } catch (e) {
+          console.log(e);
+          socket.send(
+            JSON.stringify({
+              type: "error_message",
+              content: "Error adding draw",
+            })
+          );
+        }
         break;
       }
     }

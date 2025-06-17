@@ -1,9 +1,16 @@
 import { Action, Draw } from "@/types";
 
-const broadcastAction = (action: Action, socket: WebSocket) => {
+const broadcastAction = (
+  action: Action,
+  socket: WebSocket,
+  userId: string,
+  roomId: string
+) => {
   socket.send(
     JSON.stringify({
       type: "draw",
+      roomId,
+      userId,
       content: JSON.stringify(action),
     })
   );
@@ -13,7 +20,9 @@ export const pushToUndoRedoArray = (
   action: Action,
   undoRedoArray: Action[],
   undoRedoIndex: number,
-  socket: WebSocket
+  socket: WebSocket,
+  userId: string,
+  roomId: string
 ) => {
   if (undoRedoArray.length === 50) {
     undoRedoArray.shift();
@@ -27,7 +36,8 @@ export const pushToUndoRedoArray = (
   undoRedoArray.push(action);
   undoRedoIndex = undoRedoArray.length - 1;
 
-  broadcastAction(action, socket);
+  broadcastAction(action, socket, userId, roomId);
+
   return { undoRedoArray, undoRedoIndex };
 };
 
@@ -35,7 +45,9 @@ export const performUndo = (
   undoRedoArray: Action[],
   undoRedoIndex: number,
   diagrams: Draw[],
-  socket: WebSocket
+  socket: WebSocket,
+  userId: string,
+  roomId: string
 ): { diagrams: Draw[]; undoRedoIndex: number; undoRedoArray: Action[] } => {
   const action = undoRedoArray[undoRedoIndex];
 
@@ -79,7 +91,7 @@ export const performUndo = (
       break;
   }
 
-  broadcastAction(undoAction, socket);
+  broadcastAction(undoAction, socket, userId, roomId);
 
   return {
     diagrams,
@@ -92,7 +104,9 @@ export const performRedo = (
   undoRedoArray: Action[],
   undoRedoIndex: number,
   diagrams: Draw[],
-  socket: WebSocket
+  socket: WebSocket,
+  userId: string,
+  roomId: string
 ): { diagrams: Draw[]; undoRedoIndex: number; undoRedoArray: Action[] } => {
   if (undoRedoIndex === undoRedoArray.length - 1) {
     return { diagrams, undoRedoIndex, undoRedoArray };
@@ -139,11 +153,33 @@ export const performRedo = (
       break;
   }
 
-  broadcastAction(redoAction, socket);
-
+  broadcastAction(redoAction, socket, userId, roomId);
   return {
     diagrams,
     undoRedoIndex: Math.min(undoRedoArray.length - 1, undoRedoIndex + 1),
     undoRedoArray,
   };
+};
+
+export const performAction = (action: Action, diagrams: Draw[]) => {
+  switch (action.type) {
+    case "create":
+      diagrams.push(action.modifiedDraw!);
+      break;
+    case "move":
+    case "resize":
+    case "edit":
+      diagrams.forEach((diagram, index) => {
+        if (diagram.id === action.originalDraw!.id) {
+          diagrams[index] = action.modifiedDraw!;
+        }
+      });
+      break;
+    case "erase":
+      diagrams = diagrams.filter(
+        (diagram) => diagram.id !== action.originalDraw!.id
+      );
+      break;
+  }
+  return diagrams;
 };

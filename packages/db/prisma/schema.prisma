@@ -55,7 +55,7 @@ enum Shape {
   line
   arrow
   text
-  freehand
+  freeHand
 }
 
 model Draw {

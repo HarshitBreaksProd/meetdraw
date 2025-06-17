@@ -17,16 +17,18 @@ import {
   setUser,
   setBackgroundHaloPosition,
 } from "@/lib/features/meetdraw/appSlice";
-import { Room } from "@/types";
+import { Room, User } from "@/types";
 import ChatRoom from "./ChatRoom";
 import BackgroundHalo from "./BackgroundHalo";
 
 const MainPage = ({
   jwtCookie,
   rooms,
+  userInfo,
 }: {
   jwtCookie: RequestCookie;
   rooms: Room[];
+  userInfo: User;
 }) => {
   const userState = useAppSelector((state) => state.app.user);
   const dispatch = useAppDispatch();
@@ -39,6 +41,14 @@ const MainPage = ({
       const user = JSON.parse(sessionStorage.getItem("user")!);
       if (user) {
         dispatch(setUser(user));
+      } else if (userInfo) {
+        console.log(userInfo);
+        let newUserInfo: User = {
+          id: userInfo.id,
+          name: userInfo.name,
+          username: userInfo.username,
+        };
+        dispatch(setUser(newUserInfo));
       }
     }
   }, [jwtCookie, userState]);

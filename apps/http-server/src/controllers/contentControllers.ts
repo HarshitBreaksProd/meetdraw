@@ -182,3 +182,32 @@ export async function fetchAllChatMessages(req: Request, res: Response) {
     });
   }
 }
+
+export async function fetchAllDraws(req: Request, res: Response) {
+  const userId = req.userId;
+  if (!userId) {
+    res.status(401).json({
+      message: "User Id not found",
+    });
+    return;
+  }
+
+  const { roomId } = req.params;
+
+  try {
+    const draws = await prismaClient.draw.findMany({
+      where: {
+        roomId: roomId,
+      },
+    });
+
+    res.json({
+      draws,
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(401).json({
+      message: "Could not fetch draws",
+    });
+  }
+}

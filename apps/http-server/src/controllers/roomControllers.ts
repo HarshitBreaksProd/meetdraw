@@ -133,7 +133,6 @@ export async function fetchAllRoomsController(req: Request, res: Response) {
       },
     });
 
-    // Sort rooms by latest chat message timestamp
     const sortedRooms = rooms.sort((a, b) => {
       const aLatestChat = a.Chat[0]?.createdAt || a.createdAt;
       const bLatestChat = b.Chat[0]?.createdAt || b.createdAt;
