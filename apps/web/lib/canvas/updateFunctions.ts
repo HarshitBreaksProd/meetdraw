@@ -520,6 +520,7 @@ export function handleShapeSelectionBox(
     case "rectangle":
     case "circle":
       return {
+        ...draw,
         id: "0",
         shape: "rectangle",
         startX: farthestLeft - 5,
@@ -532,6 +533,7 @@ export function handleShapeSelectionBox(
       };
     case "diamond":
       return {
+        ...draw,
         id: "0",
         shape: "rectangle",
         startX: farthestLeft - 5,
@@ -554,6 +556,7 @@ export function handleShapeSelectionBox(
       farthestBottom = Math.max(p1.y, p2.y, p3.y);
 
       return {
+        ...draw,
         id: "1",
         shape: "rectangle",
         startX: farthestLeft - 5,
@@ -572,6 +575,7 @@ export function handleShapeSelectionBox(
       farthestTop = Math.min(...points.map((point) => point.y));
       farthestBottom = Math.max(...points.map((point) => point.y));
       return {
+        ...draw,
         id: "1",
         shape: "rectangle",
         startX: farthestLeft - 5,
@@ -587,6 +591,7 @@ export function handleShapeSelectionBox(
       const endX = draw.startX! + ctx!.measureText(draw.text!).width;
       const endY = draw.startY! - parseInt(draw.fontSize!);
       return {
+        ...draw,
         id: "1",
         shape: "rectangle",
         startX: draw.startX! - 10,
