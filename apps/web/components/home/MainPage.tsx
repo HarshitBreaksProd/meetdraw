@@ -1,6 +1,6 @@
 "use client";
 
-import AppointmentCard from "@/components/home/AppointmentCard";
+import AppointmentCard from "@/components/home/CommsCard";
 import ChatsView from "@/components/home/ChatsView";
 import MeetdrawsView from "@/components/home/MeetdrawsView";
 import UserCard from "@/components/home/UserCard";
@@ -42,7 +42,6 @@ const MainPage = ({
       if (user) {
         dispatch(setUser(user));
       } else if (userInfo) {
-        console.log(userInfo);
         let newUserInfo: User = {
           id: userInfo.id,
           name: userInfo.name,

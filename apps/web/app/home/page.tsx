@@ -11,7 +11,6 @@ const page = async () => {
   }
 
   const { data: user } = await axiosInstance.get("/auth/info");
-  console.log(user.user);
   const { data: rooms } = await axiosInstance.get("/room/all");
 
   return (

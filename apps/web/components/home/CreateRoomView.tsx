@@ -19,7 +19,6 @@ const CreateRoomView = () => {
 
   useEffect(() => {
     if (state.room) {
-      console.log(state.room);
       redirect(`/canvas/${state.room.id}`);
     }
   }, [state.room]);
