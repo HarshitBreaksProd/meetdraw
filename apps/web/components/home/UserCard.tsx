@@ -6,16 +6,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import {
-  GiAlienBug,
-  GiAlienEgg,
-  GiAlienFire,
-  GiAlienStare,
-  GiJetFighter,
-} from "react-icons/gi";
-import { useAppSelector, useAppDispatch } from "@/lib/hooks/redux";
+import { GiAlienFire, GiJetFighter } from "react-icons/gi";
+import { useAppSelector } from "@/lib/hooks/redux";
 import { redirect } from "next/navigation";
-import { TbAlien } from "react-icons/tb";
+import { BiChevronDown, BiLogOut } from "react-icons/bi";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip";
+import { signoutAction } from "@/actions/authActions";
 
 const UserCard = () => {
   let user = useAppSelector((state) => state.app.user);
@@ -32,7 +32,25 @@ const UserCard = () => {
     <Card className="backdrop-blur-md bg-black/50 hover:-translate-y-[2px] shadow hover:shadow-green-500/10 transition-all duration-300">
       <CardHeader className="-mb-4">
         <div className="flex w-full justify-between items-center">
-          <CardTitle>{user.username}</CardTitle>
+          <CardTitle className="flex gap-1 items-center">
+            {user.username}
+            <Tooltip>
+              <TooltipTrigger className="cursor-pointer">
+                <BiChevronDown />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="">
+                <button
+                  className="flex items-center gap-1 cursor-pointer"
+                  onClick={() => {
+                    signoutAction();
+                    redirect("/signin");
+                  }}
+                >
+                  <BiLogOut size={14} />
+                </button>
+              </TooltipContent>
+            </Tooltip>
+          </CardTitle>
           <GiJetFighter className="text-neutral-400" size={26} />
         </div>
       </CardHeader>

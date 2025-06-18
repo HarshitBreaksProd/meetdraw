@@ -2,6 +2,7 @@
 import { UserSigninSchema, UserSignupSchema } from "@workspace/common/types";
 import axiosInstance from "@/lib/axios/axiosInstance";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export interface FormState {
   message: string;
@@ -99,5 +100,19 @@ export async function signinAction(
       return { message: (error as any).response.data.message };
     }
     return { message: "Could not login user." };
+  }
+}
+
+export async function signoutAction() {
+  try {
+    const res = await axiosInstance.post("/auth/signout");
+    if (res.data.message) {
+      (await cookies()).delete("jwt");
+      return { message: res.data.message };
+    } else {
+      return { message: "Could not logout user." };
+    }
+  } catch (error) {
+    console.log(error);
   }
 }
