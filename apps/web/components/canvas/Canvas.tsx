@@ -379,7 +379,10 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   ]);
 
   function executeUndo() {
-    if (!socket) return;
+    if (!socket) {
+      return;
+    }
+    console.log("undo");
     const changes = performUndo(
       undoRedoArrayRef.current,
       undoRedoIndexRef.current,
@@ -400,7 +403,10 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   }
 
   function executeRedo() {
-    if (!socket) return;
+    if (!socket) {
+      return;
+    }
+    console.log("redo");
     const changes = performRedo(
       undoRedoArrayRef.current,
       undoRedoIndexRef.current,
@@ -540,7 +546,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
       document.removeEventListener("keydown", handleShortcuts);
       document.removeEventListener("keyup", handleShortcutsClose);
     };
-  }, []);
+  }, [socket, isLoading]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -1457,7 +1463,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
   return (
     <TooltipProvider>
       <div className="h-screen w-screen relative">
-        <div className="fixed z-2 w-fit h-fit bg-black rounded-md left-3 top-3">
+        <div className="fixed z-2 w-fit h-fit bg-neutral-900 rounded-md left-3 top-3">
           <div className="bg-green-400/25 z-1 rounded-lg px-1.5 py-1 flex gap-1.5 items-center">
             <Button
               size="icon"
@@ -1718,7 +1724,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
         {activeAction === "draw" ||
         (activeAction === "select" && selectedShape !== null) ? (
           activeShape === "text" || selectedShape === "text" ? (
-            <div className="fixed px-3 py-2 z-2 w-fit h-fit bg-neutral-900 border border-neutral-600 rounded left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
+            <div className="fixed px-3 py-2 z-2 w-fit h-fit border border-neutral-600 left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
               <div className="space-y-2 items-center rounded-md text-white">
                 <div className="text-sm">
                   <h3>Color</h3>
@@ -1836,7 +1842,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
             selectedShape === "freeHand" ||
             selectedShape === "arrow" ||
             selectedShape === "line" ? (
-            <div className="fixed px-3 py-2 z-2 w-fit h-fit bg-neutral-900 border border-neutral-600 rounded left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
+            <div className="fixed px-3 py-2 z-2 w-fit h-fit border border-neutral-600 left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
               <div className="space-y-2 items-center rounded-md">
                 <div className="text-sm">
                   <h3>Stroke</h3>
@@ -1980,7 +1986,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
               </div>
             </div>
           ) : (
-            <div className="fixed px-3 py-2 z-2 w-fit h-fit bg-neutral-900 border border-neutral-600 rounded left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
+            <div className="fixed px-3 py-2 z-2 w-fit h-fit border border-neutral-600 left-3 top-1/2 transform -translate-y-1/2 bg-black rounded-md">
               <div className="space-y-2 items-center rounded-md">
                 <div className="text-sm">
                   <h3>Stroke</h3>
@@ -2184,8 +2190,8 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
           <></>
         )}
 
-        <div className="fixed flex gap-2 z-2 w-fit h-fit bg-neutral-900 rounded left-3 bottom-3 bg-black rounded-md">
-          <div className="bg-black rounded-md">
+        <div className="fixed flex gap-2 z-2 w-fit h-fit left-3 bottom-3 bg-neutral-900 rounded-md">
+          <div className="bg-neutral-900 rounded-md">
             <div className="bg-green-400/25 p-1 flex items-center rounded-md">
               <Button
                 size="icon"
@@ -2219,13 +2225,13 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
               </Button>
             </div>
           </div>
-          <div className="bg-black rounded-md">
+          <div className="bg-neutral-900 rounded-md">
             <div className="bg-green-400/25 p-1 flex gap-2 items-center rounded-md">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="icon"
-                    className="bg-transparent relative cursor-pointer border-r border-green-900 -mr-1 rounded-r-none bg-green-600/40 hover:bg-green-600/60"
+                    className="relative cursor-pointer border-r border-green-900 -mr-1 rounded-r-none bg-green-600/40 hover:bg-green-600/60"
                     onClick={executeUndo}
                     disabled={!canUndo}
                   >
@@ -2240,7 +2246,7 @@ const Canvas = ({ roomId, token }: { roomId: string; token: string }) => {
                 <TooltipTrigger asChild>
                   <Button
                     size="icon"
-                    className="bg-transparent relative cursor-pointer border-l border-green-900 -ml-1 rounded-l-none bg-green-600/40 hover:bg-green-600/60"
+                    className="relative cursor-pointer border-l border-green-900 -ml-1 rounded-l-none bg-green-600/40 hover:bg-green-600/60"
                     onClick={executeRedo}
                     disabled={!canRedo}
                   >

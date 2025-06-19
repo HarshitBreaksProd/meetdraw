@@ -46,8 +46,14 @@ export default function SignupForm({
   const [state, formAction] = useActionState(signupAction, initialState);
   const dispatch = useAppDispatch();
   const userState = useAppSelector((state) => state.app.user);
+
   useEffect(() => {
-    if (state.user) {
+    const sessionUser = sessionStorage.getItem("user");
+
+    if (sessionUser && jwtCookie && jwtCookie.value) {
+      dispatch(setUser(JSON.parse(sessionUser)));
+      redirect("/home");
+    } else if (state.user) {
       const user = {
         id: state.user.id,
         name: state.user.name,

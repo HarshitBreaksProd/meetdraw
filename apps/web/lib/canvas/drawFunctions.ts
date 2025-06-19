@@ -349,8 +349,7 @@ function renderSelectionBox(ctx: CanvasRenderingContext2D, selectionBox: Draw) {
     ctx.strokeRect(corner_4.x - 4, corner_4.y - 4, 8, 8);
     ctx.stroke();
     ctx.fill();
-    if (selectionBox.points) {
-      // for line and arrow
+    if (selectionBox.points.length === 3) {
       ctx.fillStyle = "#5588ff";
       ctx.beginPath();
       ctx.moveTo(selectionBox.points[0]!.x, selectionBox.points[0]!.y);

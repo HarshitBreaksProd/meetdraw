@@ -17,6 +17,16 @@
   src: url("./Pencerio-Hairline.otf");
 }
 
+@font-face {
+  font-family: "NunitoVariable";
+  src: url("./Nunito-Variable.ttf");
+}
+
+@font-face {
+  font-family: "Comico";
+  src: url("./Comico-Regular.otf");
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -127,6 +137,8 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-cabinet-grotesk: CabinetGrotesk;
   --font-pencerio: Pencerio;
+  --font-nunito-variable: NunitoVariable;
+  --font-comico: Comico;
 }
 
 @layer base {
