@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const roomControllers_1 = require("../controllers/roomControllers");
+const authenticateUser_1 = require("../middlewares/authenticateUser");
+const router = (0, express_1.Router)();
+router.route("/create").post(authenticateUser_1.authenticateUser, roomControllers_1.createRoomController);
+router.route("/join").post(authenticateUser_1.authenticateUser, roomControllers_1.joinRoomController);
+router.route("/all").get(authenticateUser_1.authenticateUser, roomControllers_1.fetchAllRoomsController);
+exports.default = router;

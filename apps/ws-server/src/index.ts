@@ -11,7 +11,7 @@ interface WSConnection {
   verified: boolean;
 }
 
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ port: Number(process.env.PORT) });
 
 const activeRooms = new Map<string, WSConnection[]>();
 const userVerificationStatus = new Map<
