@@ -3,7 +3,8 @@ import prismaClient from "@workspace/db/client";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { WebSocketMessageSchema } from "@workspace/common";
 import { config } from "dotenv";
-config();
+import path from "path";
+config({ path: path.resolve(__dirname, "../.env") });
 
 interface WSConnection {
   userId: string;

@@ -5,7 +5,8 @@ import contentRouter from "./routes/contentRouter";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { config } from "dotenv";
-config();
+import path from "path";
+config({ path: path.resolve(__dirname, "../.env") });
 const app = express();
 
 app.use(express.json());
