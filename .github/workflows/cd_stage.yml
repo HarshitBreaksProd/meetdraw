@@ -16,7 +16,6 @@ jobs:
           echo "${{ secrets.KNOWN_HOSTS }}" $> ~/.ssh/known_hosts
           cat /home/runner/.ssh/known_hosts
           ssh -i ~/ssh_key root@64.227.158.123
-          echo "${{ secrets.SSH_KEY_PASSKEY }}" && echo -ne '\n'
           cd meetdraw/ && git pull origin main
           pnpm install
           pnpm run build
