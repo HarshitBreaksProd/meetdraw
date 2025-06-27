@@ -13,7 +13,7 @@ jobs:
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}
-          passphrase: ${{ secrets.SSH_KEY_PASSKEY }}
+          ssh-auth-sock: ${{ secrets.SSH_KEY_PASSKEY }}
 
       - name: Do CD stuff
         run: |
