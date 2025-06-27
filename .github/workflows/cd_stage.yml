@@ -9,13 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     name: Deplying everything to the staging cluster
     steps:
-      - run: |
+      - name: Add SSH key with passphrase
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}
+          passphrase: ${{ secrets.SSH_KEY_PASSKEY }}
+
+      - name: Do CD stuff
+        run: |
           echo "${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}" $> ~/ssh_key
           mkdir -p /home/runner/.ssh
           touch /home/runner/.ssh/known_hosts
           echo "${{ secrets.KNOWN_HOSTS }}" $> ~/.ssh/known_hosts
-          cat /home/runner/.ssh/known_hosts
-          ssh -i ~/ssh_key root@64.227.158.123
+          ssh -T -i ~/ssh_key root@64.227.158.123
           cd meetdraw/ && git pull origin main
           pnpm install
           pnpm run build
