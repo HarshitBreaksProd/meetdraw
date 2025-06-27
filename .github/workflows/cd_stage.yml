@@ -1,0 +1,21 @@
+name: Deploy to staging
+on:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  redeploy_everything:
+    runs-on: ubuntu-latest
+    name: Deplying everything to the staging cluster
+    steps:
+      - run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}" $> ~/ssh_key
+          ssh -i ~/ssh_key root@64.227.158.123
+          echo "${{ secrets.SSH_KEY_PASSKEY }}" && echo -ne '\n'
+          cd meetdraw/ && git pull origin main
+          pnpm install
+          pnpm run build
+          pm2 restart http-server
+          pm2 restart ws-server
+          pm2 restart web
