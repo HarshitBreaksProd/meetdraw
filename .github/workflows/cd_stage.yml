@@ -11,8 +11,8 @@ jobs:
     steps:
       - run: |
           echo "${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}" $> ~/ssh_key
+          echo "${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}" $> ~/.ssh/known_hosts
           ssh -i ~/ssh_key root@64.227.158.123
-          echo "Yes" && echo -ne '\n'
           echo "${{ secrets.SSH_KEY_PASSKEY }}" && echo -ne '\n'
           cd meetdraw/ && git pull origin main
           pnpm install
