@@ -5,8 +5,8 @@ WORKDIR /usr/src/app
 ARG DATABASE_URL
 
 # Environment variables for API connections
-ENV NEXT_PUBLIC_HTTP_URL=http://backend:3001/api/v1
-ENV NEXT_PUBLIC_WS_URL=ws://ws:8080/
+ENV NEXT_PUBLIC_HTTP_URL=https://meetdraw-be.harshitbreaksprod.live/api/v1
+ENV NEXT_PUBLIC_WS_URL=ws://meetdraw-ws.harshitbreaksprod.live/
 
 # Copy configuration files first
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json turbo.json ./
