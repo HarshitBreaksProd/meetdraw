@@ -22,3 +22,11 @@ jobs:
           file: ./docker/Dockerfile.backend
           push: true
           tags: harshitbreaksprod/meetdraw-be:${{ github.sha }}
+
+      - name: Push to VM
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}" &> ~/ssh_key
+          mkdir ~/.ssh
+          echo "${{ secrets.KNOWN_HOSTS }}" &> ~/.ssh/known_hosts
+          chmod 700 ~/ssh_key
+          ssh -i ~/ssh_key root@${{ secrets.DIGITAL_OCEAN_SSH_IP }} -t "docker stop meetdraw_be && docker run --name meetdraw_be -d -p 3001:3001 harshitbreaksprod/meetdraw-be:${{ github.sha }}"
