@@ -1,0 +1,4 @@
+name: Deploy the frontend
+on:
+  push:
+    branches: [main]
