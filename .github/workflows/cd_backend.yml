@@ -21,4 +21,4 @@ jobs:
           context: .
           file: ./docker/Dockerfile.backend
           push: true
-          tags: HarshitBreaksProd/meetdraw-be:${{ github.sha }}
+          tags: harshitbreaksprod/meetdraw-be:${{ github.sha }}
