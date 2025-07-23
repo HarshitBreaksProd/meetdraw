@@ -1,13 +1,20 @@
 {
-  "name": "shadcn-ui-monorepo",
-  "version": "0.0.1",
+  "name": "meetdraw",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "start": "turbo start",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "db:generate": "cd packages/db && pnpx prisma generate && cd ../..",
+    "start:http": "cd apps/http-server && node dist/index.js",
+    "start:ws": "cd apps/ws-server && node dist/index.js",
+    "start:web": "cd apps/web && pnpm start",
+    "build:http": "cd apps/http-server && tsc -b",
+    "build:ws": "cd apps/ws-server && tsc -b",
+    "build:web": "cd apps/web && pnpm build"
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",

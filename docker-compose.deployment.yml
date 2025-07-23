@@ -1,0 +1,34 @@
+services:
+  backend:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://meetdraw_owner:npg_F1RzJy8hLMvZ@ep-billowing-pond-a94rpsx9-pooler.gwc.azure.neon.tech/meetdraw?sslmode=require&channel_binding=require
+
+  frontend:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        - DATABASE_URL=postgresql://meetdraw_owner:npg_F1RzJy8hLMvZ@ep-billowing-pond-a94rpsx9-pooler.gwc.azure.neon.tech/meetdraw?sslmode=require&channel_binding=require
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://meetdraw_owner:npg_F1RzJy8hLMvZ@ep-billowing-pond-a94rpsx9-pooler.gwc.azure.neon.tech/meetdraw?sslmode=require&channel_binding=require
+      - NEXT_PUBLIC_HTTP_URL=http://backend:3001/api/v1
+      - NEXT_PUBLIC_WS_URL=ws://ws:8080/
+    depends_on:
+      - backend
+      - ws
+
+  ws:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile.ws
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql://meetdraw_owner:npg_F1RzJy8hLMvZ@ep-billowing-pond-a94rpsx9-pooler.gwc.azure.neon.tech/meetdraw?sslmode=require&channel_binding=require
