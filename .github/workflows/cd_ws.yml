@@ -22,3 +22,12 @@ jobs:
           file: ./docker/Dockerfile.ws
           push: true
           tags: harshitbreaksprod/meetdraw-ws:${{ github.sha }}
+
+      - name: Push to VM
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}" &> ~/ssh_key
+          mkdir ~/.ssh
+          echo "${{ secrets.KNOWN_HOSTS }}" &> ~/.ssh/known_hosts
+          chmod 700 ~/ssh_key
+          ssh -i ~/ssh_key root@${{ secrets.DIGITAL_OCEAN_SSH_IP }} -t "docker stop meetdraw_ws && docker rm meetdraw_ws && docker run --name meetdraw_ws -d -p 8080:8080 harshitbreaksprod/meetdraw-be:${{ github.sha }}"
+    
