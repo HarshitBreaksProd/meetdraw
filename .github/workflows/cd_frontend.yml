@@ -30,4 +30,4 @@ jobs:
           mkdir ~/.ssh
           echo "${{ secrets.KNOWN_HOSTS }}" &> ~/.ssh/known_hosts
           chmod 700 ~/ssh_key
-          ssh -i ~/ssh_key root@${{ secrets.DIGITAL_OCEAN_SSH_IP }} -t "docker stop meetdraw_fe && docker rm meetdraw_fe && docker run --name meetdraw_fe -d -p 3000:3000 harshitbreaksprod/meetdraw-fe:${{ github.sha }}"
+          ssh -i ~/ssh_key root@${{ secrets.DIGITAL_OCEAN_SSH_IP }} -t "docker pull harshitbreaksprod/meetdraw-be:${{ github.sha }} && docker stop meetdraw_fe && docker rm meetdraw_fe && docker run --name meetdraw_fe -d -p 3000:3000 harshitbreaksprod/meetdraw-fe:${{ github.sha }}"
