@@ -33,6 +33,6 @@ RUN cd apps/web && pnpm add tailwindcss postcss autoprefixer
 # Build the application
 RUN DATABASE_URL=${DATABASE_URL} pnpm run build:web
 
-EXPOSE 3000
+EXPOSE 3000 
 
 CMD ["pnpm", "run", "start:web"]
