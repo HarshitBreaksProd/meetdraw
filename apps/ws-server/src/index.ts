@@ -24,6 +24,8 @@ wss.on("connection", async (socket: WebSocket, req: Request) => {
   const searchParams = new URLSearchParams(req.url.split("?")[1]);
   const token = searchParams.get("token");
 
+  console.log("token verify")
+
   userVerificationStatus.set(socket, { verified: false });
 
   socket.on("message", async (data) => {
