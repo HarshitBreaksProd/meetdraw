@@ -1,4 +1,4 @@
-name: Deploy the ws
+name: Deploy the frontend
 on:
   push:
     branches: [main]
