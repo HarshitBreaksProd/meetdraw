@@ -28,4 +28,4 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY_DIGITAL_OCEAN }}" &> ~/ssh_key
           mkdir ~/.ssh
           chmod 700 ~/ssh_key
-          ssh -o StrictHostKeyChecking=no -i ~/ssh_key root@${{ secrets.DIGITAL_OCEAN_SSH_IP }} -t "docker pull harshitbreaksprod/meetdraw-be:${{ github.sha }} && docker stop meetdraw_ws && docker rm meetdraw_ws && docker run --name meetdraw_ws -d -p 8080:8080 harshitbreaksprod/meetdraw-be:${{ github.sha }}"
+          ssh -o StrictHostKeyChecking=no -i ~/ssh_key root@${{ secrets.DIGITAL_OCEAN_SSH_IP }} -t "docker pull harshitbreaksprod/meetdraw-be:${{ github.sha }} && docker stop meetdraw_ws && docker rm meetdraw_ws && docker run --name meetdraw_ws -e JWT_SECRET=${{ secrets.JWT_SECRET }} -e PORT=${{ secrets.WS_PORT }} -d -p 8080:8080 harshitbreaksprod/meetdraw-be:${{ github.sha }}"

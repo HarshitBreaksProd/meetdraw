@@ -13,7 +13,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: process.env.FRONTEND_ORIGIN,
     credentials: true,
   })
 );
@@ -22,6 +22,6 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/room", roomRouter);
 app.use("/api/v1/content", contentRouter);
 
-app.listen(process.env.PORT, () => {
+app.listen(parseInt(process.env.PORT || "3001"), () => {
   console.log(`Server is running on port ${process.env.PORT}`);
 });
