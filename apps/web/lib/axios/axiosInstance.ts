@@ -6,8 +6,6 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
-console.log(process.env.NEXT_PUBLIC_HTTP_URL)
-
 axiosInstance.interceptors.request.use(
   async (config) => {
     let token: string | undefined;
