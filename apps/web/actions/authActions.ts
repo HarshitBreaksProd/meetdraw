@@ -54,6 +54,8 @@ export async function signupAction(
     };
   } catch (error) {
     console.log(error);
+    console.log((error as any).response);
+    console.log((error as any).response.data);
     if ((error as any).response.data.message) {
       return { message: (error as any).response.data.message };
     }
@@ -96,6 +98,8 @@ export async function signinAction(
     };
   } catch (error) {
     console.log(error);
+    console.log((error as any).response);
+    console.log((error as any).response.data);
     if ((error as any).response.data.message) {
       return { message: (error as any).response.data.message };
     }
