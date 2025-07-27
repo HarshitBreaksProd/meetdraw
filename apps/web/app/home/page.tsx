@@ -10,8 +10,25 @@ const page = async () => {
     redirect("/signin");
   }
 
-  const { data: user } = await axiosInstance.get("/auth/info");
-  const { data: rooms } = await axiosInstance.get("/room/all");
+  let user;
+  let rooms;
+
+  try{
+    const { data } = await axiosInstance.get("/auth/info");
+    user = data;
+  } catch (e) {
+    console.log("Error fetching user info")
+    console.log(e)
+  }
+
+  try{
+    const { data } = await axiosInstance.get("/room/all");
+    rooms = data;
+  } catch (e) {
+    console.log("Error fetching rooms")
+    console.log(e)
+  }
+
 
   return (
     <MainPage jwtCookie={jwtCookie} rooms={rooms.rooms} userInfo={user.user} />

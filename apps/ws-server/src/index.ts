@@ -24,8 +24,7 @@ wss.on("connection", async (socket: WebSocket, req: Request) => {
   const searchParams = new URLSearchParams(req.url.split("?")[1]);
   const token = searchParams.get("token");
 
-  console.log("token verify")
-
+  console.log("token", token);
   userVerificationStatus.set(socket, { verified: false });
 
   socket.on("message", async (data) => {
@@ -42,6 +41,8 @@ wss.on("connection", async (socket: WebSocket, req: Request) => {
     }
 
     const recievedData = JSON.parse(data as unknown as string);
+
+    console.log(recievedData);
     const validMessage = WebSocketMessageSchema.safeParse(recievedData);
 
     if (!validMessage.success) {
@@ -54,6 +55,8 @@ wss.on("connection", async (socket: WebSocket, req: Request) => {
       );
       return;
     }
+
+    console.log(validMessage.data);
 
     switch (validMessage.data.type) {
       case "connect_room":

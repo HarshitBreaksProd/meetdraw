@@ -9,6 +9,7 @@ export const useWebSocket = (url: string) => {
     if (!url || url.includes("undefined")) {
       setIsError(true);
       setIsLoading(false);
+      console.log("url is undefined");
       return;
     }
 

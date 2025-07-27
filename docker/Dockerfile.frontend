@@ -3,6 +3,8 @@ FROM node:22-alpine
 WORKDIR /usr/src/app
 
 ARG DATABASE_URL
+ARG NEXT_PUBLIC_HTTP_URL
+ARG NEXT_PUBLIC_WS_URL
 
 # Copy configuration files first
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json turbo.json ./
@@ -26,8 +28,8 @@ COPY ./apps/web ./apps/web
 # Install additional dependencies including tailwind and postcss
 RUN cd apps/web && pnpm add tailwindcss postcss autoprefixer
 
-# Build the application
-RUN DATABASE_URL=${DATABASE_URL} pnpm run build:web
+# Build the application with all required environment variables
+RUN DATABASE_URL=${DATABASE_URL} NEXT_PUBLIC_HTTP_URL=${NEXT_PUBLIC_HTTP_URL} NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL} pnpm run build:web
 
 EXPOSE 3000
 

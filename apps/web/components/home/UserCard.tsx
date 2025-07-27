@@ -16,16 +16,24 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { signoutAction } from "@/actions/authActions";
+import { useEffect } from "react";
 
 const UserCard = () => {
   let user = useAppSelector((state) => state.app.user);
   const rooms = useAppSelector((state) => state.app.rooms);
 
-  if (!user) {
-    user = JSON.parse(sessionStorage.getItem("user") || "null");
-    if (!user || user === null) {
-      redirect("/signin");
+  useEffect(() => {
+    if (!user) {
+      const SessionUser = JSON.parse(sessionStorage.getItem("user") || "null");
+      if (!SessionUser || SessionUser === null) {
+        window.location.href = "/signin";
+      }
+      user = SessionUser;
     }
+  }, [user]);
+
+  if (!user) {
+    return null;
   }
 
   return (
