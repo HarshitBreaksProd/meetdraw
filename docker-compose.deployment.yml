@@ -23,12 +23,12 @@ services:
       args:
         - DATABASE_URL=postgresql://harshit:password@postgres:5432/meetdraw
         - NEXT_PUBLIC_HTTP_URL=http://backend:3001/api/v1
-        - NEXT_PUBLIC_WS_URL=ws://ws:8080/
+        - NEXT_PUBLIC_WS_URL=ws://localhost:8080/
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_HTTP_URL=http://backend:3001/api/v1
-      - NEXT_PUBLIC_WS_URL=ws://ws:8080/
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8080/
       - DATABASE_URL=postgresql://harshit:password@postgres:5432/meetdraw
     depends_on:
       - backend
