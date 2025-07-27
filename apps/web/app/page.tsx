@@ -16,8 +16,14 @@ import { BsTwitterX } from "react-icons/bs";
 import { FiLinkedin } from "react-icons/fi";
 import { FiGithub } from "react-icons/fi";
 import { FaCode } from "react-icons/fa6";
+import { useEffect } from "react";
 
 export default function Page() {
+  useEffect(() => {
+    console.log("NEXT_PUBLIC_HTTP_URL", process.env.NEXT_PUBLIC_HTTP_URL);
+    console.log("NEXT_PUBLIC_WS_URL", process.env.NEXT_PUBLIC_WS_URL);
+  }, []);
+
   return (
     <div className="w-full min-h-screen h-fit overflow-x-clip bg-neutral-950 text-white [&::-webkit-scrollbar]:hidden font-nunito-variable">
       <section

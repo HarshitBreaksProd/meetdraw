@@ -131,9 +131,9 @@ const ChatRoom = ({ jwtCookie }: { jwtCookie: RequestCookie }) => {
   useEffect(() => {
     async function fetchMessage() {
       if (activeRoom !== null) {
-        const messages = await fetchAllChatMessages(activeRoom.id);
-        setMessages(messages);
-        setLastSrNo(messages[0]?.serialNumber);
+        const fetchedMessages = await fetchAllChatMessages(activeRoom.id);
+        setMessages(fetchedMessages);
+        setLastSrNo(fetchedMessages[0]?.serialNumber);
         chatDivRef.current?.scrollTo({
           top: chatDivRef.current?.scrollHeight,
           behavior: "smooth",
@@ -220,7 +220,16 @@ const ChatRoom = ({ jwtCookie }: { jwtCookie: RequestCookie }) => {
       }
       document.removeEventListener("keydown", handleShortcuts);
     };
-  }, [socket, isLoading, isError, activeRoom.id, userState.id, serverReady]);
+  }, [
+    socket,
+    isLoading,
+    isError,
+    activeRoom.id,
+    userState.id,
+    serverReady,
+    messages,
+    lastSrNo,
+  ]);
 
   if (isError) {
     return (
