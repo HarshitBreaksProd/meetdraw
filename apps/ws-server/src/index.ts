@@ -14,6 +14,10 @@ interface WSConnection {
 
 const wss = new WebSocketServer({ port: Number(process.env.PORT) });
 
+console.log("process.env.PORT", process.env.PORT);
+console.log("process.env.DATABASE_URL", process.env.DATABASE_URL);
+console.log("process.env.JWT_SECRET", process.env.JWT_SECRET);
+
 const activeRooms = new Map<string, WSConnection[]>();
 const userVerificationStatus = new Map<
   WebSocket,
