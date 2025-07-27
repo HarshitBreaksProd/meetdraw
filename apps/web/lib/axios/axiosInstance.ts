@@ -7,7 +7,6 @@ if (url && !url.endsWith("/api/v1")) {
   url = url + "/api/v1";
   console.log("url1", url);
   console.log("ws", process.env.NEXT_PUBLIC_WS_URL);
-  
 }
 
 const axiosInstance = axios.create({
