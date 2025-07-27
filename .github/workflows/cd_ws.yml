@@ -8,7 +8,7 @@ jobs:
     steps:
       - name: Checkout the code
         uses: actions/checkout@v2
-
+ 
       - name: Docker login
         uses: docker/login-action@v2
         with:
