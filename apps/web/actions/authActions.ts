@@ -2,7 +2,6 @@
 import { UserSigninSchema, UserSignupSchema } from "@workspace/common/types";
 import axiosInstance from "@/lib/axios/axiosInstance";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
 export interface FormState {
   message: string;
