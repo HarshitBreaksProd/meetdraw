@@ -55,7 +55,7 @@ services:
     container_name: postgres
     restart: always
     ports:
-      - "5432:5432" # Maps host port 5432 to container port 5432
+      - "5432:5432" # Maps host port 5432 to container port 5432 
     environment:
       POSTGRES_USER: harshit
       POSTGRES_PASSWORD: password
