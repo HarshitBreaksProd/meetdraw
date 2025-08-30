@@ -28,4 +28,4 @@ jobs:
           echo "${{ secrets.SSH_SECRET }}" &> ~/ssh_key
           mkdir ~/.ssh
           chmod 700 ~/ssh_key
-          ssh -o StrictHostKeyChecking=no -i ~/ssh_key root@${{ secrets.SSH_IP }} -t 'docker system prune -a -f && docker pull harshitbreaksprod/meetdraw-ws:${{ github.sha }} && docker stop meetdraw_ws && docker rm meetdraw_ws && docker run --name meetdraw_ws -e DATABASE_URL="${{ secrets.DATABASE_URL }}" -e JWT_SECRET=${{ secrets.JWT_SECRET }} -e PORT=${{ secrets.WS_PORT }} -d -p 8080:8080 harshitbreaksprod/meetdraw-ws:${{ github.sha }}'
+          ssh -o StrictHostKeyChecking=no -i ~/ssh_key root@${{ secrets.SSH_IP }} -t 'docker system prune -a -f && docker pull harshitbreaksprod/meetdraw-ws:${{ github.sha }} &&  docker run --name meetdraw_ws -e DATABASE_URL="${{ secrets.DATABASE_URL }}" -e JWT_SECRET=${{ secrets.JWT_SECRET }} -e PORT=${{ secrets.WS_PORT }} -d -p 8080:8080 harshitbreaksprod/meetdraw-ws:${{ github.sha }}'
