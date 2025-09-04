@@ -189,7 +189,7 @@ export default function Page() {
           <div className="flex justify-around items-center mb-[200px] md:mb-[300px]">
             <div className="hover:scale-110 transition-all duration-300">
               <a
-                href="https://x.com/I_Break_Prod"
+                href="https://x.com/vibingmonk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-neutral-400 hover:text-white transition-colors cursor-pointer"
@@ -199,7 +199,7 @@ export default function Page() {
             </div>
             <div className="hover:scale-110 transition-all duration-300">
               <a
-                href="https://www.linkedin.com/in/harshit-breaks-prod/"
+                href="https://www.linkedin.com/in/joshipallava/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-neutral-400 hover:text-white transition-colors cursor-pointer"
@@ -209,7 +209,7 @@ export default function Page() {
             </div>
             <div className="hover:scale-110 transition-all duration-300">
               <a
-                href="mailto:g1harshit7@gmail.com"
+                href="mailto:joshipallava@gmail.com"
                 className="text-neutral-400 hover:text-white transition-colors cursor-pointer"
               >
                 <Mail className="w-6 h-6 md:w-7 md:h-7" />
@@ -217,7 +217,7 @@ export default function Page() {
             </div>
             <div className="hover:scale-110 transition-all duration-300">
               <a
-                href="https://github.com/HarshitBreaksProd"
+                href="https://github.com/Pallava-Joshi"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-neutral-400 hover:text-white transition-colors cursor-pointer"
@@ -227,7 +227,7 @@ export default function Page() {
             </div>
             <div className="hover:scale-110 transition-all duration-300">
               <a
-                href="https://github.com/HarshitBreaksProd/meetdraw"
+                href="https://github.com/Pallava-Joshi/meetdraw"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-neutral-400 hover:text-white transition-colors cursor-pointer"
